@@ -1,0 +1,44 @@
+plugins {
+    id 'java'
+    id 'org.jetbrains.intellij' version '1.1'
+}
+
+group 'com.maple'
+version '1.0-SNAPSHOT'
+
+// jvm版本号
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+    implementation 'com.alibaba:fastjson:1.2.83'
+}
+
+// See https://github.com/JetBrains/gradle-intellij-plugin/
+// idea版本号
+intellij {
+    version='2020.3.4'
+//    plugins.set(listOf("java"))
+}
+patchPluginXml {
+    changeNotes ="""
+      <br>v1.0<br>
+      <em>mo这是我的更新日志</em>"""
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = "UTF-8"
+}
+
+test {
+    useJUnitPlatform()
+}
+
+repositories { maven{ url'http://maven.aliyun.com/nexus/content/groups/public/'} }

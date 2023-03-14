@@ -1,0 +1,49 @@
+<idea-plugin>
+    <id>com.maple.plugs</id>
+    <name>测试插件开发</name>
+    <version>1.0</version>
+    <vendor email="maple_20@qq.com">maple</vendor>
+
+    <description><![CDATA[
+        我的插件---------------------------------------------------------
+    ]]></description>
+
+    <!-- please see https://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
+         on how to target different products -->
+    <depends>com.intellij.modules.platform</depends>
+    <!--<depends>com.intellij.modules.java</depends>-->
+
+
+    <extensions defaultExtensionNs="com.intellij">
+        <localInspection
+                id="inspection.JavaInspection"
+                language="JAVA"
+                shortName="JavaInspection"
+                displayName="JavaInspection"
+                groupName="JavaInspection"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="com.maple.plugs.misc.JavaInspection"/>
+
+        <notificationGroup id="com.maple.plugs.action.MapleToStruct"
+                           displayType="BALLOON"
+                           key="com.maple.plugs.action.MapleToStruct"/>
+    </extensions>
+
+
+
+
+
+    <actions>
+        <!-- Add your actions here -->
+        <action id="com.maple.plugs.action.MapleAction" class="com.maple.plugs.action.MapleAction" text="哈哈" description="我是啊哈哈">
+            <add-to-group group-id="HelpMenu" anchor="first"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl H"/>
+        </action>
+        <action id="toStruct" class="com.maple.plugs.action.MapleToStruct" text="ToStruct" description="To转换为结构化json数据">
+            <add-to-group group-id="Copy.Paste.Special" anchor="last"/>
+        </action>
+    </actions>
+
+
+</idea-plugin>
