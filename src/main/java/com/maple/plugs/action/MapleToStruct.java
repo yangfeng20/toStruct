@@ -1,5 +1,7 @@
 package com.maple.plugs.action;
 
+import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.Project;
@@ -12,12 +14,9 @@ import com.maple.plugs.utils.ClipboardHandler;
 import com.maple.plugs.utils.CursorUtil;
 import com.maple.plugs.utils.Notifier;
 import com.maple.plugs.utils.ThreadContext;
-import com.maple.plugs.utils.reflect.ReflectUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 /**
  * @author maple
@@ -42,23 +41,13 @@ public class MapleToStruct extends AnAction {
 
 
         // 解析搜索到的PsiClass
-        AtomicReference<String> parseResult = new AtomicReference<>();
         Parse structParse = new StructParse();
-        Consumer<Object> addResult = structParse::parsePsiField;
 
-
-
-        for (Object item : result) {
-            Object fields = ReflectUtil.invoke(item, "getAllFields");
-            if (fields == null) {
-                throw new IllegalArgumentException("没有getFields方法");
-            }
-            ReflectUtil.arrayForEach(fields, addResult);
-        }
-        parseResult.set((String) structParse.getParsePsiFieldResult());
+        // PSI转换为json
+        Object resultJson = structParse.parseClass(result.get(0));
 
         // 剪切板
-        ClipboardHandler.copyToClipboard(parseResult.get());
+        ClipboardHandler.copyToClipboard(JSONObject.toJSONString(resultJson, SerializerFeature.DisableCircularReferenceDetect));
         // 通知
         Notifier.notifyInfo("Convert " + cursorText + " to Struct", project);
         ThreadContext.clear();

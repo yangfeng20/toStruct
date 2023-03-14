@@ -33,7 +33,7 @@ public class StructLog {
 
     public static StructLog getLogger(LogLeve logLeve) {
         synchronized (StructLog.class) {
-            if (instance != null) {
+            if (instance == null) {
                 synchronized (StructLog.class) {
                     instance = new StructLog();
                     instance.setLogLeve(logLeve);

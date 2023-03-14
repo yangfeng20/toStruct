@@ -15,14 +15,14 @@ public enum ClassTypeMappingEnum {
     /**
      * 类型映射
      */
-    null_("", null),
-    string("string", String.class),
-    int_("int", Integer.class),
-    long_("long", Long.class),
-    bigDecimal("number", BigDecimal.class),
-    boolean_("boolean", Boolean.class),
-    array("array", Collection.class),
-
+    null_("", null, ""),
+    string("string", String.class, ""),
+    int_("int", Integer.class, ""),
+    long_("long", Long.class, ""),
+    bigDecimal("number", BigDecimal.class, ""),
+    boolean_("boolean", Boolean.class, ""),
+    array("array", Collection.class, ""),
+    object("object", Object.class, ""),
 
     ;
 
@@ -30,6 +30,16 @@ public enum ClassTypeMappingEnum {
     private final String desc;
 
     private final Class<?> clazz;
+
+    private String fullClassName;
+
+    public String getFullClassName() {
+        return fullClassName;
+    }
+
+    public void setFullClassName(String name) {
+        this.fullClassName = name;
+    }
 
     public String getDesc() {
         return desc;
@@ -39,15 +49,21 @@ public enum ClassTypeMappingEnum {
         return clazz;
     }
 
-    ClassTypeMappingEnum(String desc, Class<?> clazz) {
+    ClassTypeMappingEnum(String desc, Class<?> clazz, String className) {
         this.desc = desc;
         this.clazz = clazz;
+        this.fullClassName = className;
+    }
+
+    public static boolean isBaseType(ClassTypeMappingEnum classTypeMappingEnum) {
+        return classTypeMappingEnum != ClassTypeMappingEnum.object && classTypeMappingEnum != ClassTypeMappingEnum.array
+                && classTypeMappingEnum != ClassTypeMappingEnum.null_;
     }
 
 
     public static ClassTypeMappingEnum getByClass(Class<?> clazz) {
         for (ClassTypeMappingEnum item : values()) {
-            if (item.clazz== null){
+            if (item.clazz == null) {
                 continue;
             }
             if (item.clazz.isAssignableFrom(clazz)) {

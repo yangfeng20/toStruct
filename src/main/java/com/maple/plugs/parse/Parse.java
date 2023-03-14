@@ -14,7 +14,7 @@ public interface Parse {
      * @param obj obj
      * @return {@link Object}
      */
-    void parsePsiField(Object obj);
+    Object parsePsiField(Object obj);
 
 
     /**
@@ -23,4 +23,11 @@ public interface Parse {
      * @return {@link Object}
      */
     Object getParsePsiFieldResult();
+
+    /**
+     * 解析类
+     *
+     * @param psiClass psi类
+     */
+    Object parseClass(Object psiClass);
 }
