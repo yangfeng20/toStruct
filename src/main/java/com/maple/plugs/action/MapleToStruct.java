@@ -1,11 +1,11 @@
 package com.maple.plugs.action;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.Project;
 import com.maple.plugs.constant.ContextKeyConstant;
+import com.maple.plugs.parse.Parse;
+import com.maple.plugs.parse.StructParse;
 import com.maple.plugs.search.ClassSearcher;
 import com.maple.plugs.search.DefaultClassSearcher;
 import com.maple.plugs.utils.ClipboardHandler;
@@ -15,9 +15,8 @@ import com.maple.plugs.utils.ThreadContext;
 import com.maple.plugs.utils.reflect.ReflectUtil;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
@@ -42,45 +41,24 @@ public class MapleToStruct extends AnAction {
         List<Object> result = classSearcher.search(cursorText);
 
 
-        Map<String, Object> filedMap = new HashMap<>();
-        Consumer<Object> addResult = item -> {
-            // todo 需要获取的数据为字段名，字段类型，字段描述
-            String fieldName = ReflectUtil.invokeNoArg(item, "getName", String.class);
-
-            Object annotations = ReflectUtil.invokeNoArg(item, "getAnnotations");
-            Object desc=null;
-            if (annotations!=null){
-                Object getAnnotations = ((Object[]) annotations)[0];
-                desc = ReflectUtil.invoke(getAnnotations, "findAttributeValue", new String[]{"value"}, String.class);
-            }
-
-            Object valueType = null;
-            Object psiType = ReflectUtil.invokeNoArg(item, "getType");
-            String typeVal = ReflectUtil.invokeNoArg(psiType, "getClassName", String.class);
-
-            String typeVal1 = item.toString().split(":")[1];
+        // 解析搜索到的PsiClass
+        AtomicReference<String> parseResult = new AtomicReference<>();
+        Parse structParse = new StructParse();
+        Consumer<Object> addResult = structParse::parsePsiField;
 
 
-            JSONObject jsonObject = new JSONObject();
-            JSONObject inner = new JSONObject();
-            inner.put("desc", desc);
-            inner.put("type", typeVal1);
-            jsonObject.put(fieldName, inner);
-
-            filedMap.put(fieldName, inner);
-        };
 
         for (Object item : result) {
-            Object fields = ReflectUtil.invokeNoArg(item, "getAllFields");
+            Object fields = ReflectUtil.invoke(item, "getAllFields");
             if (fields == null) {
                 throw new IllegalArgumentException("没有getFields方法");
             }
             ReflectUtil.arrayForEach(fields, addResult);
         }
-
+        parseResult.set((String) structParse.getParsePsiFieldResult());
 
         // 剪切板
-        ClipboardHandler.copyToClipboard(JSON.toJSONString(filedMap));
+        ClipboardHandler.copyToClipboard(parseResult.get());
         // 通知
         Notifier.notifyInfo("Convert " + cursorText + " to Struct", project);
         ThreadContext.clear();
