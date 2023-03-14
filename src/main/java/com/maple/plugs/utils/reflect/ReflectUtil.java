@@ -1,5 +1,6 @@
 package com.maple.plugs.utils.reflect;
 
+import com.maple.plugs.log.StructLog;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.InvocationTargetException;
@@ -38,7 +39,7 @@ public class ReflectUtil {
         try {
             targetMethod = clazz.getDeclaredMethod(methodName, getClasses(args));
         } catch (NoSuchMethodException e) {
-            e.printStackTrace();
+            StructLog.getLogger().printStackTrace(e);
             return null;
         }
 
@@ -47,7 +48,7 @@ public class ReflectUtil {
         try {
             returnVal = targetMethod.invoke(target, args);
         } catch (IllegalAccessException | InvocationTargetException e) {
-            e.printStackTrace();
+            StructLog.getLogger().printStackTrace(e);
         }
 
         return returnVal;

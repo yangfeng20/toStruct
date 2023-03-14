@@ -1,5 +1,6 @@
 package com.maple.plugs.parse;
 
+import com.maple.plugs.ClassTypeMappingEnum;
 import com.maple.plugs.utils.reflect.ReflectUtil;
 
 import java.util.Collection;
@@ -64,10 +65,22 @@ public abstract class AbsParse implements Parse {
 
         // 当前类能被加载，说明是jdk中的类型
         if (typeClass != null) {
+            ClassTypeMappingEnum typeEnum = ClassTypeMappingEnum.getByClass(typeClass);
+            switch (typeEnum) {
+                case int_:
+                case long_:
+                case bigDecimal:
+                case string:
+                case boolean_:
+                    result = typeEnum.getDesc();
+                    break;
+                default:
+                    break;
+            }
             boolean isNumberType = Number.class.isAssignableFrom(typeClass);
             boolean isStr = String.class.isAssignableFrom(typeClass);
             if (isNumberType || isStr) {
-                result = typeClass.getSimpleName();
+                ClassTypeMappingEnum.getByClass(typeClass);
             }
             // 获取参数化类型
             boolean isList = Collection.class.isAssignableFrom(typeClass);
