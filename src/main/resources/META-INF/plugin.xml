@@ -1,16 +1,19 @@
 <idea-plugin>
     <id>com.maple.plugs</id>
-    <name>测试插件开发</name>
+    <name>ToStruct</name>
     <version>1.0</version>
     <vendor email="maple_20@qq.com">maple</vendor>
 
     <description><![CDATA[
+        toStruct
         我的插件---------------------------------------------------------
     ]]></description>
 
     <!-- please see https://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
          on how to target different products -->
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.java</depends>
+    <!--<depends>com.alibaba.fastjson</depends>-->
     <!--<depends>com.intellij.modules.java</depends>-->
 
 

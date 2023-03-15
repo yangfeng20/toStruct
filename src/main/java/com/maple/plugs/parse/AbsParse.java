@@ -1,6 +1,6 @@
 package com.maple.plugs.parse;
 
-import com.alibaba.fastjson.JSONObject;
+import com.google.gson.JsonObject;
 import com.maple.plugs.ClassTypeMappingEnum;
 import com.maple.plugs.constant.PsiMethodEnum;
 import com.maple.plugs.log.StructLog;
@@ -25,8 +25,8 @@ public abstract class AbsParse implements Parse {
 
     @Override
     public Object parseClass(Object psiClass) {
-        JSONObject result = new JSONObject();
-        final JSONObject psiFieldResult = new JSONObject();
+        JsonObject result = new JsonObject();
+        final JsonObject psiFieldResult = new JsonObject();
         Object fields = ReflectUtil.invoke(psiClass, PsiMethodEnum.getAllFields.name());
         if (fields == null) {
             throw new IllegalArgumentException("没有getFields方法");
@@ -34,18 +34,18 @@ public abstract class AbsParse implements Parse {
 
         ClassTypeMappingEnum typeMappingEnum = getPsiType(psiClass);
         if (ClassTypeMappingEnum.isBaseType(typeMappingEnum)) {
-            psiFieldResult.put("type", typeMappingEnum.getDesc());
+            psiFieldResult.addProperty("type", typeMappingEnum.getDesc());
             return psiFieldResult;
         }
 
-        result.put("type", typeMappingEnum.getDesc());
+        result.addProperty("type", typeMappingEnum.getDesc());
         // 解析每个字段
         ReflectUtil.arrayForEach(fields, psiField->{
-            Pair<String, JSONObject> pair = parsePsiField(psiField);
-            psiFieldResult.put(pair.getKey(), pair.getValue());
+            Pair<String, JsonObject> pair = parsePsiField(psiField);
+            psiFieldResult.add(pair.getKey(), pair.getValue());
         });
 
-        result.put("properties", psiFieldResult);
+        result.add("properties", psiFieldResult);
         return result;
     }
 
@@ -57,8 +57,8 @@ public abstract class AbsParse implements Parse {
      * @param psiField psiField
      */
     @Override
-    public Pair<String, JSONObject> parsePsiField(Object psiField) {
-        JSONObject fieldJson = new JSONObject();
+    public Pair<String, JsonObject> parsePsiField(Object psiField) {
+        JsonObject fieldJson = new JsonObject();
 
         // 字段名
         String fieldName = ReflectUtil.invokeResultType(psiField, "getName", String.class);
@@ -81,11 +81,11 @@ public abstract class AbsParse implements Parse {
             ClassSearcher classSearcher = new DefaultClassSearcher();
             Object psiClass = classSearcher.search(fieldType.getFullClassName()).get(0);
             Object innerJson = parseClass(psiClass);
-            fieldJson.put(objectKey, innerJson);
+            fieldJson.add(objectKey, (JsonObject)innerJson);
         }
 
-        fieldJson.put("description", desc);
-        fieldJson.put("type", fieldType.getDesc());
+        fieldJson.addProperty("description", (String) desc);
+        fieldJson.addProperty("type", fieldType.getDesc());
 
         return Pair.of(fieldName, fieldJson);
     }

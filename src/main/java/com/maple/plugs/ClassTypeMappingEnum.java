@@ -2,6 +2,7 @@ package com.maple.plugs;
 
 import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.Date;
 
 /**
  * @author yangfeng
@@ -66,7 +67,7 @@ public enum ClassTypeMappingEnum {
             if (item.clazz == null) {
                 continue;
             }
-            if (item.clazz.isAssignableFrom(clazz)) {
+            if (item.clazz.isAssignableFrom(clazz) || (item.equals(string) && Date.class.isAssignableFrom(clazz))) {
                 return item;
             }
         }
