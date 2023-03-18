@@ -8,6 +8,6 @@ package com.maple.plugs.constant;
 
 public class ConstantString {
 
-    public final static String API_MODEL_PROPERTIES = "ApiModelProperties";
+    public final static String API_MODEL_PROPERTIES = "ApiModelProperty";
     public final static String VALUE = "value";
 }

@@ -21,7 +21,6 @@ public class DescStruct {
 
     private String javaType;
 
-    private Map<String, String> parameterizedType;
 
     public DescStruct() {
     }
@@ -64,13 +63,5 @@ public class DescStruct {
 
     public void setJavaType(String javaType) {
         this.javaType = javaType;
-    }
-
-    public Map<String, String> getParameterizedType() {
-        return parameterizedType;
-    }
-
-    public void setParameterizedType(Map<String, String> parameterizedType) {
-        this.parameterizedType = parameterizedType;
     }
 }

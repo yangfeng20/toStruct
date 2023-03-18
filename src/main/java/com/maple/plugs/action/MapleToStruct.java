@@ -45,23 +45,28 @@ public class MapleToStruct extends AnAction {
 
         ClassSearcher classSearcher = new DefaultClassSearcher();
 
-        String cursorText = CursorUtil.getCursorText();
-        List<PsiClass> result = classSearcher.search(cursorText);
+        try {
+            String cursorText = CursorUtil.getCursorText();
+            List<PsiClass> result = classSearcher.search(cursorText);
 
+            // 解析搜索到的PsiClass
+            Parse structParse = new StructParse(true);
 
-        // 解析搜索到的PsiClass
-        Parse structParse = new StructParse();
+            // PSI转换为json
+            Object resultJson = structParse.parseClass(result.get(0));
 
-
-        // PSI转换为json
-        Object resultJson = structParse.parseClass(result.get(0));
-
-        // 剪切板
-        String jsonStr = gsonBuilder.create().toJson(resultJson);
-        ClipboardHandler.copyToClipboard(jsonStr);
-        // 通知
-        Notifier.notifyInfo("Convert " + cursorText + " to Struct", project);
-        ThreadContext.clear();
+            // 剪切板
+            String jsonStr = gsonBuilder.create().toJson(resultJson);
+            ClipboardHandler.copyToClipboard(jsonStr);
+            // 通知
+            Notifier.notifyInfo("Convert " + cursorText + " to Struct", project);
+            ThreadContext.clear();
+        } catch (Exception exception) {
+            exception.printStackTrace();
+            Notifier.notifyError("ToStruct 发生异常", project);
+        } finally {
+            ThreadContext.clear();
+        }
 
     }
 }

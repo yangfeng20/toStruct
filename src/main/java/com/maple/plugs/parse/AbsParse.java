@@ -1,7 +1,6 @@
 package com.maple.plugs.parse;
 
 import com.intellij.psi.*;
-import com.intellij.psi.impl.source.tree.java.PsiLiteralExpressionImpl;
 import com.maple.plugs.ClassTypeMappingEnum;
 import com.maple.plugs.constant.ConstantString;
 import com.maple.plugs.entity.ClassNameGroup;
@@ -10,6 +9,7 @@ import com.maple.plugs.loader.BizClassLoader;
 import com.maple.plugs.search.ClassSearcher;
 import com.maple.plugs.search.DefaultClassSearcher;
 import com.maple.plugs.utils.ClassNameGroupConverter;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -29,16 +29,28 @@ public abstract class AbsParse implements Parse {
     public DescStruct parseClass(PsiClass psiClass) {
         DescStruct descStruct = new DescStruct();
 
-        String qualifiedName = psiClass.getQualifiedName();
+        // 获取全选定类名，并转换为包装类型
+        String qualifiedName = ClassTypeMappingEnum.baseTypeToPackageType(psiClass.getQualifiedName());
+
+        // 如果普通类加载器能加载，说明是jdk中的类【基本数据类型或者集合】
         Class<?> loadClassByJdk = BizClassLoader.loadClassByJdk(qualifiedName);
         if (Objects.nonNull(loadClassByJdk)) {
             descStruct.setType(ClassTypeMappingEnum.getByClass(loadClassByJdk).getDesc());
             descStruct.setJavaType(qualifiedName);
             return descStruct;
         }
+
+        // 不能加载，业务对象类型
         descStruct.setType(ClassTypeMappingEnum.object.name());
         descStruct.setProperties(parseClass0(psiClass));
+
+        // 结构描述对象后置处理
+        descObjectPostHandler(descStruct);
         return descStruct;
+    }
+
+    protected void descObjectPostHandler(@NotNull DescStruct descStruct) {
+
     }
 
     private Map<String, DescStruct> parseClass0(PsiClass psiClass) {
@@ -61,22 +73,22 @@ public abstract class AbsParse implements Parse {
             // 字段注解的属性对象
             PsiAnnotationMemberValue fieldAnnotationAttr = apiModelProperties.findAttributeValue(ConstantString.VALUE);
             Optional.ofNullable(fieldAnnotationAttr).ifPresent(self -> {
-                Object attrValue = ((PsiLiteralExpressionImpl) (self)).getValue();
+                Object attrValue = ((PsiLiteralExpression) (self)).getValue();
                 fieldDescStruct.setDescription((String) attrValue);
             });
         }
 
         // 获取类名组（包含泛型，并且都是全类名）
         PsiType fieldType = psiField.getType();
-        String classNameGroupStr = fieldType.getInternalCanonicalText();
+        String classNameGroupStr = ClassTypeMappingEnum.baseTypeToPackageType(fieldType.getInternalCanonicalText());
 
         ClassNameGroup classNameGroup = ClassNameGroupConverter.convert(classNameGroupStr);
         Class<?> loaderJdkClass = BizClassLoader.loadClassByJdk(classNameGroup.getClassName());
         ClassTypeMappingEnum classTypeMappingEnum = ClassTypeMappingEnum.getByClass(loaderJdkClass);
         if (Objects.nonNull(loaderJdkClass)) {
-            // 是java中的类型【一般为基本数据类型】
-            fieldDescStruct.setJavaType(classNameGroup.getClassName());
+            // 是java中的类型【基本数据类型,集合类型,str,date】
             fieldDescStruct.setType(classTypeMappingEnum.getDesc());
+            fieldDescStruct.setJavaType(classNameGroup.getClassName());
 
             // 如果是集合类型
             if (ClassTypeMappingEnum.array.equals(classTypeMappingEnum)) {
