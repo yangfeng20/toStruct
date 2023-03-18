@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.Project;
+import com.intellij.psi.PsiClass;
 import com.maple.plugs.constant.ContextKeyConstant;
 import com.maple.plugs.parse.Parse;
 import com.maple.plugs.parse.StructParse;
@@ -23,7 +24,7 @@ import java.util.List;
  */
 public class MapleToStruct extends AnAction {
 
-    static class ClassTest{
+    static class ClassTest {
         private String name;
 
         private Integer age;
@@ -45,7 +46,7 @@ public class MapleToStruct extends AnAction {
         ClassSearcher classSearcher = new DefaultClassSearcher();
 
         String cursorText = CursorUtil.getCursorText();
-        List<Object> result = classSearcher.search(cursorText);
+        List<PsiClass> result = classSearcher.search(cursorText);
 
 
         // 解析搜索到的PsiClass

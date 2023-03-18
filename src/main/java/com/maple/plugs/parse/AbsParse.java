@@ -1,19 +1,18 @@
 package com.maple.plugs.parse;
 
-import com.google.gson.JsonObject;
+import com.intellij.psi.*;
+import com.intellij.psi.impl.source.tree.java.PsiLiteralExpressionImpl;
 import com.maple.plugs.ClassTypeMappingEnum;
-import com.maple.plugs.constant.PsiMethodEnum;
-import com.maple.plugs.log.StructLog;
+import com.maple.plugs.constant.ConstantString;
+import com.maple.plugs.entity.ClassNameGroup;
+import com.maple.plugs.entity.DescStruct;
+import com.maple.plugs.loader.BizClassLoader;
 import com.maple.plugs.search.ClassSearcher;
 import com.maple.plugs.search.DefaultClassSearcher;
-import com.maple.plugs.utils.reflect.ReflectUtil;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
+import com.maple.plugs.utils.ClassNameGroupConverter;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author yangfeng
@@ -23,168 +22,100 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public abstract class AbsParse implements Parse {
 
+
+    private final ClassSearcher classSearcher = new DefaultClassSearcher();
+
     @Override
-    public Object parseClass(Object psiClass) {
-        JsonObject result = new JsonObject();
-        final JsonObject psiFieldResult = new JsonObject();
-        Object fields = ReflectUtil.invoke(psiClass, PsiMethodEnum.getAllFields.name());
-        if (fields == null) {
-            throw new IllegalArgumentException("没有getFields方法");
+    public DescStruct parseClass(PsiClass psiClass) {
+        DescStruct descStruct = new DescStruct();
+
+        String qualifiedName = psiClass.getQualifiedName();
+        Class<?> loadClassByJdk = BizClassLoader.loadClassByJdk(qualifiedName);
+        if (Objects.nonNull(loadClassByJdk)) {
+            descStruct.setType(ClassTypeMappingEnum.getByClass(loadClassByJdk).getDesc());
+            descStruct.setJavaType(qualifiedName);
+            return descStruct;
+        }
+        descStruct.setType(ClassTypeMappingEnum.object.name());
+        descStruct.setProperties(parseClass0(psiClass));
+        return descStruct;
+    }
+
+    private Map<String, DescStruct> parseClass0(PsiClass psiClass) {
+        PsiField[] psiFields = psiClass.getAllFields();
+        Map<String, DescStruct> fieldStructMap = new HashMap<>((int) (psiFields.length / 0.75) + 1);
+        for (PsiField psiField : psiFields) {
+            String fieldName = psiField.getName();
+            DescStruct fieldDescStruct = parseField(psiField);
+            fieldStructMap.put(fieldName, fieldDescStruct);
+        }
+        return fieldStructMap;
+    }
+
+    protected DescStruct parseField(PsiField psiField) {
+        DescStruct fieldDescStruct = new DescStruct();
+
+        // 获取字段描述
+        PsiAnnotation apiModelProperties = parseFieldAnnotation(psiField, ConstantString.API_MODEL_PROPERTIES);
+        if (Objects.nonNull(apiModelProperties)) {
+            // 字段注解的属性对象
+            PsiAnnotationMemberValue fieldAnnotationAttr = apiModelProperties.findAttributeValue(ConstantString.VALUE);
+            Optional.ofNullable(fieldAnnotationAttr).ifPresent(self -> {
+                Object attrValue = ((PsiLiteralExpressionImpl) (self)).getValue();
+                fieldDescStruct.setDescription((String) attrValue);
+            });
         }
 
-        ClassTypeMappingEnum typeMappingEnum = getPsiType(psiClass);
-        if (ClassTypeMappingEnum.isBaseType(typeMappingEnum)) {
-            psiFieldResult.addProperty("type", typeMappingEnum.getDesc());
-            return psiFieldResult;
+        // 获取类名组（包含泛型，并且都是全类名）
+        PsiType fieldType = psiField.getType();
+        String classNameGroupStr = fieldType.getInternalCanonicalText();
+
+        ClassNameGroup classNameGroup = ClassNameGroupConverter.convert(classNameGroupStr);
+        Class<?> loaderJdkClass = BizClassLoader.loadClassByJdk(classNameGroup.getClassName());
+        ClassTypeMappingEnum classTypeMappingEnum = ClassTypeMappingEnum.getByClass(loaderJdkClass);
+        if (Objects.nonNull(loaderJdkClass)) {
+            // 是java中的类型【一般为基本数据类型】
+            fieldDescStruct.setJavaType(classNameGroup.getClassName());
+            fieldDescStruct.setType(classTypeMappingEnum.getDesc());
+
+            // 如果是集合类型
+            if (ClassTypeMappingEnum.array.equals(classTypeMappingEnum)) {
+                String listInnerParamTypeName = classNameGroup.getInnerClassNameList().get(0).getClassName();
+                List<PsiClass> paramTypeSearchResult = classSearcher.search(listInnerParamTypeName);
+                fieldDescStruct.setItems(parseClass(paramTypeSearchResult.get(0)));
+            }
+            return fieldDescStruct;
         }
 
-        result.addProperty("type", typeMappingEnum.getDesc());
-        // 解析每个字段
-        ReflectUtil.arrayForEach(fields, psiField->{
-            Pair<String, JsonObject> pair = parsePsiField(psiField);
-            psiFieldResult.add(pair.getKey(), pair.getValue());
-        });
+        // 如果是对象类型
+        if (ClassTypeMappingEnum.object.equals(classTypeMappingEnum)) {
+            List<PsiClass> bizClassSearchResultList = classSearcher.search(classNameGroup.getClassName());
+            fieldDescStruct.setProperties(parseClass0(bizClassSearchResultList.get(0)));
+        }
 
-        result.add("properties", psiFieldResult);
-        return result;
+        fieldDescStruct.setType(classTypeMappingEnum.getDesc());
+        return fieldDescStruct;
     }
 
 
-    /**
-     * 解析
-     * 需要获取的数据为字段名，字段类型，字段描述
-     *
-     * @param psiField psiField
-     */
-    @Override
-    public Pair<String, JsonObject> parsePsiField(Object psiField) {
-        JsonObject fieldJson = new JsonObject();
-
-        // 字段名
-        String fieldName = ReflectUtil.invokeResultType(psiField, "getName", String.class);
-
-        // 字段描述
-        Object desc = parseFieldAnnotation(psiField, "ApiModelProperties");
-
-        // 字段类型
-        ClassTypeMappingEnum fieldType = getPsiType(psiField);
-
-        String objectKey = "";
-        if (ClassTypeMappingEnum.array.equals(fieldType)) {
-            objectKey = "items";
-        } else if (ClassTypeMappingEnum.object.equals(fieldType)) {
-            objectKey = "properties";
-        }
-        // 字段是对象或者list，递归构建json
-        if (StringUtils.isNotBlank(objectKey)) {
-            // 搜索字段并解析PsiClass
-            ClassSearcher classSearcher = new DefaultClassSearcher();
-            Object psiClass = classSearcher.search(fieldType.getFullClassName()).get(0);
-            Object innerJson = parseClass(psiClass);
-            fieldJson.add(objectKey, (JsonObject)innerJson);
-        }
-
-        fieldJson.addProperty("description", (String) desc);
-        fieldJson.addProperty("type", fieldType.getDesc());
-
-        return Pair.of(fieldName, fieldJson);
-    }
-
-    protected Object parseFieldAnnotation(Object psiField, String annotationName) {
-        return parseFieldAnnotation(psiField, annotationName, "value");
-    }
-
-    protected Object parseFieldAnnotation(Object psiField, String annotationName, String annotationKey) {
-
-        AtomicReference<Object> result = new AtomicReference<>();
-
-        // 获取字段修饰符
-        Object psiFieldModifier = ReflectUtil.invoke(psiField, "getModifierList");
-        if (Objects.isNull(psiFieldModifier)) {
+    protected PsiAnnotation parseFieldAnnotation(PsiField psiField, String annotationName) {
+        PsiModifierList modifierList = psiField.getModifierList();
+        if (Objects.isNull(modifierList)) {
             return null;
         }
-        // get annotation
-        Object annotationList = ReflectUtil.invoke(psiFieldModifier, "getAnnotations");
-        if (Objects.isNull(annotationList)) {
-            return null;
-        }
-        ReflectUtil.arrayForEach(annotationList, annotation -> {
-            if (!Objects.equals(annotationName, ReflectUtil.invoke(annotation, "getShortName"))) {
-                return;
-            }
-            // 获取注解的某个属性
-            Object attributeValue = ReflectUtil.invoke(annotation, "findAttributeValue", annotationKey);
-            if (Objects.isNull(attributeValue)) {
-                return;
-            }
-            // 获取属性的value值 annotation.value()
-            result.set(ReflectUtil.invoke(attributeValue, "getValue"));
-        });
 
-        return result.get();
-    }
-
-    /**
-     * 获取Psi元素的对应java类型
-     * 例如一个Student的类，他的PsiType就是Student
-     *
-     * @param psiElement psiClass or psiElement
-     * @return {@link ClassTypeMappingEnum}
-     */
-    protected ClassTypeMappingEnum getPsiType(Object psiElement) {
-
-        // 全类名
-        String fullClassName = "";
-        // 获取PsiField
-        Object psiType = ReflectUtil.invoke(psiElement, "getType");
-        if (psiType != null) {
-            // 是PsiField
-            fullClassName = ReflectUtil.invokeResultType(psiType, "getInternalCanonicalText", String.class);
-        } else {
-            // 如果是PsiClass
-            fullClassName = (String) ReflectUtil.invoke(psiElement, "getQualifiedName");
-        }
-
-        // java.util.List<java.lang.Long>
-        // 如果是参数化类型
-        if (isParamType(fullClassName)) {
-            String arrayClass = String.join(",", splitParamType(fullClassName));
-            ClassTypeMappingEnum array = ClassTypeMappingEnum.array;
-            array.setFullClassName(arrayClass.split(",")[1]);
-            return array;
-        }
-
-        // 加载jdk class
-        Class<?> typeClass = null;
-        try {
-            typeClass = Thread.currentThread().getContextClassLoader().loadClass(fullClassName);
-        } catch (ClassNotFoundException e) {
-            StructLog.getLogger().printStackTrace(e);
-        }
-
-        // 当前类能被加载，说明是jdk中的类型
-        if (typeClass != null) {
-            return ClassTypeMappingEnum.getByClass(typeClass);
-        }
-
-        // 其他默认为Object类型【需要递归解析】
-        ClassTypeMappingEnum object = ClassTypeMappingEnum.object;
-        object.setFullClassName(fullClassName);
-        return object;
-    }
-
-    private boolean isParamType(String fullClassName){
-        if (StringUtils.isBlank(fullClassName)){
-            return false;
-        }
-        return fullClassName.contains("<");
-    }
-
-    private List<String> splitParamType(String fullClassName){
-        //List<Map<String, List<Map<String,List<String>>>>>
-    //    java.util.List<java.lang.Long>
-        String[] result = fullClassName.split("<");
-        result[1] = result[1].substring(0, result[1].length()-1);
-        return Arrays.asList(result);
+        PsiAnnotation[] annotations = modifierList.getAnnotations();
+        return Arrays.stream(annotations)
+                .filter(item -> {
+                    AtomicBoolean hasAnnotation = new AtomicBoolean(false);
+                    Optional.ofNullable(item.getQualifiedName()).ifPresent(self -> {
+                        String[] split = self.split("\\.");
+                        String shortAnnotationName = split[split.length - 1];
+                        hasAnnotation.set(Objects.equals(shortAnnotationName, annotationName));
+                    });
+                    return hasAnnotation.get();
+                })
+                .findAny()
+                .orElse(null);
     }
 }

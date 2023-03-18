@@ -3,6 +3,7 @@ package com.maple.plugs.search;
 import com.intellij.ide.util.gotoByName.DefaultChooseByNameItemProvider;
 import com.intellij.openapi.progress.util.ProgressIndicatorBase;
 import com.intellij.openapi.project.Project;
+import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
 import com.intellij.util.Processor;
 import com.maple.plugs.view.StructChooseByNameViewModelPlus;
@@ -20,14 +21,14 @@ import java.util.List;
 
 public class DefaultClassSearcher implements ClassSearcher {
     @Override
-    public List<Object> search(String name) {
+    public List<PsiClass> search(String name) {
 
         Project ideaProject = (Project) ThreadContext.get("project");
         PsiElement psiElement = CursorUtil.getCursorPsiElement();
 
-        List<Object> result = new ArrayList<>();
+        List<PsiClass> result = new ArrayList<>();
         Processor<Object> processor = param -> {
-            result.add(param);
+            result.add((PsiClass) param);
             return true;
         };
 

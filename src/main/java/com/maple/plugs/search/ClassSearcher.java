@@ -1,5 +1,7 @@
 package com.maple.plugs.search;
 
+import com.intellij.psi.PsiClass;
+
 import java.util.List;
 
 /**
@@ -16,5 +18,5 @@ public interface ClassSearcher {
      * @param name 名字
      * @return {@link List}<{@link Object}>
      */
-    List<Object> search(String name);
+    List<PsiClass> search(String name);
 }

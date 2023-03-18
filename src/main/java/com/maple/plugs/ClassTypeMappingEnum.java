@@ -17,20 +17,20 @@ public enum ClassTypeMappingEnum {
      * 类型映射
      */
     null_("", null, ""),
-    string("string", String.class, ""),
-    int_("int", Integer.class, ""),
-    long_("long", Long.class, ""),
-    bigDecimal("number", BigDecimal.class, ""),
-    boolean_("boolean", Boolean.class, ""),
-    array("array", Collection.class, ""),
-    object("object", Object.class, ""),
+    string("string", new Class[]{String.class, Date.class}, ""),
+    int_("int", new Class[]{Integer.class}, ""),
+    long_("long", new Class[]{Long.class}, ""),
+    bigDecimal("number", new Class[]{BigDecimal.class}, ""),
+    boolean_("boolean", new Class[]{Boolean.class}, ""),
+    array("array", new Class[]{Collection.class}, ""),
+    object("object", new Class[]{Object.class}, ""),
 
     ;
 
 
     private final String desc;
 
-    private final Class<?> clazz;
+    private final Class<?>[] classArr;
 
     private String fullClassName;
 
@@ -46,13 +46,10 @@ public enum ClassTypeMappingEnum {
         return desc;
     }
 
-    public Class<?> getClazz() {
-        return clazz;
-    }
 
-    ClassTypeMappingEnum(String desc, Class<?> clazz, String className) {
+    ClassTypeMappingEnum(String desc, Class<?>[] classArr, String className) {
         this.desc = desc;
-        this.clazz = clazz;
+        this.classArr = classArr;
         this.fullClassName = className;
     }
 
@@ -63,12 +60,17 @@ public enum ClassTypeMappingEnum {
 
 
     public static ClassTypeMappingEnum getByClass(Class<?> clazz) {
+        if (clazz == null) {
+            return object;
+        }
         for (ClassTypeMappingEnum item : values()) {
-            if (item.clazz == null) {
+            if (item.classArr == null) {
                 continue;
             }
-            if (item.clazz.isAssignableFrom(clazz) || (item.equals(string) && Date.class.isAssignableFrom(clazz))) {
-                return item;
+            for (Class<?> self : item.classArr) {
+                if (self.isAssignableFrom(clazz)) {
+                    return item;
+                }
             }
         }
 
