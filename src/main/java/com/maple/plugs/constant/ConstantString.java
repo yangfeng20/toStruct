@@ -10,4 +10,5 @@ public class ConstantString {
 
     public final static String API_MODEL_PROPERTIES = "ApiModelProperty";
     public final static String VALUE = "value";
+    public final static String CURRENT_CLASS_NAME = "current_class_name";
 }

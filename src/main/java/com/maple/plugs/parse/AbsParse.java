@@ -3,12 +3,16 @@ package com.maple.plugs.parse;
 import com.intellij.psi.*;
 import com.maple.plugs.ClassTypeMappingEnum;
 import com.maple.plugs.constant.ConstantString;
+import com.maple.plugs.constant.ContextKeyConstant;
 import com.maple.plugs.entity.ClassNameGroup;
 import com.maple.plugs.entity.DescStruct;
 import com.maple.plugs.loader.BizClassLoader;
 import com.maple.plugs.search.ClassSearcher;
 import com.maple.plugs.search.DefaultClassSearcher;
 import com.maple.plugs.utils.ClassNameGroupConverter;
+import com.maple.plugs.utils.StringUtil;
+import com.maple.plugs.utils.ThreadContext;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -25,12 +29,20 @@ public abstract class AbsParse implements Parse {
 
     private final ClassSearcher classSearcher = new DefaultClassSearcher();
 
+    private final Map<String, String> paramTypeMap = new HashMap<>();
+
     @Override
     public DescStruct parseClass(PsiClass psiClass) {
         DescStruct descStruct = new DescStruct();
 
         // 获取全选定类名，并转换为包装类型
         String qualifiedName = ClassTypeMappingEnum.baseTypeToPackageType(psiClass.getQualifiedName());
+
+        paramTypeMap.put(ConstantString.CURRENT_CLASS_NAME, qualifiedName);
+        PsiTypeParameterList typeParameterList = psiClass.getTypeParameterList();
+        if (Objects.nonNull(typeParameterList)) {
+            paramTypeMap.put(qualifiedName + StringUtil.getFirstParamTypeName(typeParameterList.getText()), (String) ThreadContext.get(ContextKeyConstant.PARAM_TYPE));
+        }
 
         // 如果普通类加载器能加载，说明是jdk中的类【基本数据类型或者集合】
         Class<?> loadClassByJdk = BizClassLoader.loadClassByJdk(qualifiedName);
@@ -93,7 +105,8 @@ public abstract class AbsParse implements Parse {
             // 如果是集合类型
             if (ClassTypeMappingEnum.array.equals(classTypeMappingEnum)) {
                 String listInnerParamTypeName = classNameGroup.getInnerClassNameList().get(0).getClassName();
-                List<PsiClass> paramTypeSearchResult = classSearcher.search(listInnerParamTypeName);
+                String result = paramTypeMap.get(paramTypeMap.get(ConstantString.CURRENT_CLASS_NAME) + listInnerParamTypeName);
+                List<PsiClass> paramTypeSearchResult = classSearcher.search(StringUtils.isEmpty(result) ? listInnerParamTypeName : result);
                 fieldDescStruct.setItems(parseClass(paramTypeSearchResult.get(0)));
             }
             return fieldDescStruct;
@@ -101,7 +114,8 @@ public abstract class AbsParse implements Parse {
 
         // 如果是对象类型
         if (ClassTypeMappingEnum.object.equals(classTypeMappingEnum)) {
-            List<PsiClass> bizClassSearchResultList = classSearcher.search(classNameGroup.getClassName());
+            String result = paramTypeMap.get(paramTypeMap.get(ConstantString.CURRENT_CLASS_NAME) + classNameGroup.getClassName());
+            List<PsiClass> bizClassSearchResultList = classSearcher.search(StringUtils.isEmpty(result) ? classNameGroup.getClassName() : result);
             fieldDescStruct.setProperties(parseClass0(bizClassSearchResultList.get(0)));
         }
 

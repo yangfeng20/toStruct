@@ -24,11 +24,10 @@ import java.util.List;
  */
 public class MapleToStruct extends AnAction {
 
-    static class ClassTest {
-        private String name;
+    ClassSearcher classSearcher = new DefaultClassSearcher();
 
-        private Integer age;
-    }
+    final GsonBuilder gsonBuilder = new GsonBuilder().setPrettyPrinting();
+
 
     @Override
     public void actionPerformed(@NotNull AnActionEvent e) {
@@ -37,13 +36,10 @@ public class MapleToStruct extends AnAction {
         // 2.拿到class文件的字符串，内存编译class对象，并通过classLoader加载
         // 3.拼接classes地址，直接加载类的class文件路径，加载class文件
 
-        final GsonBuilder gsonBuilder = new GsonBuilder().setPrettyPrinting();
 
         // 初始化线程上下文
         ThreadContext.init(e);
         Project project = (Project) ThreadContext.get(ContextKeyConstant.PROJECT);
-
-        ClassSearcher classSearcher = new DefaultClassSearcher();
 
         try {
             String cursorText = CursorUtil.getCursorText();
@@ -54,12 +50,12 @@ public class MapleToStruct extends AnAction {
 
             // PSI转换为json
             Object resultJson = structParse.parseClass(result.get(0));
+            String jsonStr = gsonBuilder.create().toJson(resultJson);
 
             // 剪切板
-            String jsonStr = gsonBuilder.create().toJson(resultJson);
             ClipboardHandler.copyToClipboard(jsonStr);
             // 通知
-            Notifier.notifyInfo("Convert " + cursorText + " to Struct", project);
+            Notifier.notifyInfo("ToStruct Convert " + cursorText + " to Struct", project);
             ThreadContext.clear();
         } catch (Exception exception) {
             exception.printStackTrace();

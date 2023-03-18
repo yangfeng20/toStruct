@@ -6,9 +6,9 @@ import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
 import com.intellij.util.Processor;
-import com.maple.plugs.view.StructChooseByNameViewModelPlus;
 import com.maple.plugs.utils.CursorUtil;
 import com.maple.plugs.utils.ThreadContext;
+import com.maple.plugs.view.StructChooseByNameViewModelPlus;
 
 import java.util.ArrayList;
 import java.util.List;
