@@ -31,6 +31,13 @@ public abstract class AbsParse implements Parse {
 
     private final Map<String, String> paramTypeMap = new HashMap<>();
 
+    /**
+     * 字段递归解析计数
+     */
+    private final Map<String, Integer> fieldRecursionParseCountMap = new HashMap<>();
+
+    protected Integer fieldRecursionLimit = 2;
+
     @Override
     public DescStruct parseClass(PsiClass psiClass) {
         DescStruct descStruct = new DescStruct();
@@ -69,15 +76,27 @@ public abstract class AbsParse implements Parse {
         PsiField[] psiFields = psiClass.getAllFields();
         Map<String, DescStruct> fieldStructMap = new HashMap<>((int) (psiFields.length / 0.75) + 1);
         for (PsiField psiField : psiFields) {
+            // 过滤静态字段
+            boolean isStatic = psiField.hasModifierProperty(PsiModifier.STATIC);
+            if (isStatic) {
+                continue;
+            }
             String fieldName = psiField.getName();
-            DescStruct fieldDescStruct = parseField(psiField);
+            DescStruct fieldDescStruct = parseField(psiField, psiClass);
             fieldStructMap.put(fieldName, fieldDescStruct);
         }
         return fieldStructMap;
     }
 
-    protected DescStruct parseField(PsiField psiField) {
+    protected DescStruct parseField(PsiField psiField, PsiClass currentClass) {
         DescStruct fieldDescStruct = new DescStruct();
+
+        // 防止自身引用自身，解决无线递归
+        String key = currentClass.getQualifiedName() + psiField.getName();
+        Integer fieldRecursionCount = fieldRecursionParseCountMap.compute(key, (selfKey, oldVal) -> oldVal == null ? 1 : ++oldVal);
+        if (fieldRecursionCount >= fieldRecursionLimit) {
+            return fieldDescStruct;
+        }
 
         // 获取字段描述
         PsiAnnotation apiModelProperties = parseFieldAnnotation(psiField, ConstantString.API_MODEL_PROPERTIES);
@@ -104,12 +123,27 @@ public abstract class AbsParse implements Parse {
 
             // 如果是集合类型
             if (ClassTypeMappingEnum.array.equals(classTypeMappingEnum)) {
-                String listInnerParamTypeName = classNameGroup.getInnerClassNameList().get(0).getClassName();
+                List<ClassNameGroup> innerClassNameList = classNameGroup.getInnerClassNameList();
+                if (Objects.isNull(innerClassNameList)) {
+                    // 未指定泛型
+                    fieldDescStruct.setItems(new DescStruct());
+                    return fieldDescStruct;
+                }
+                String listInnerParamTypeName = innerClassNameList.get(0).getClassName();
                 String result = paramTypeMap.get(paramTypeMap.get(ConstantString.CURRENT_CLASS_NAME) + listInnerParamTypeName);
                 List<PsiClass> paramTypeSearchResult = classSearcher.search(StringUtils.isEmpty(result) ? listInnerParamTypeName : result);
                 fieldDescStruct.setItems(parseClass(paramTypeSearchResult.get(0)));
             }
             return fieldDescStruct;
+        }
+
+        // 数组类型
+        if (classNameGroup.getClassName().contains(ConstantString.ARRAY_TYPE_TAG)) {
+            fieldDescStruct.setType(ClassTypeMappingEnum.array.getDesc());
+            fieldDescStruct.setJavaType("array");
+            DescStruct arrayItems = new DescStruct();
+            arrayItems.setType(ClassTypeMappingEnum.baseTypeToPackageType(classNameGroupStr.substring(0, classNameGroupStr.length() - 2)));
+            fieldDescStruct.setItems(arrayItems);
         }
 
         // 如果是对象类型

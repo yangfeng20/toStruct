@@ -20,6 +20,16 @@ import java.util.List;
  */
 
 public class DefaultClassSearcher implements ClassSearcher {
+
+    public DefaultClassSearcher() {
+    }
+
+    public DefaultClassSearcher(int limit) {
+        DefaultClassSearcher.limit = limit;
+    }
+
+    private static Integer limit;
+
     @Override
     public List<PsiClass> search(String name) {
 
@@ -29,13 +39,12 @@ public class DefaultClassSearcher implements ClassSearcher {
         List<PsiClass> result = new ArrayList<>();
         Processor<Object> processor = param -> {
             result.add((PsiClass) param);
-            return true;
+            return result.size() < limit;
         };
 
-
-        boolean success = DefaultChooseByNameItemProvider.filterElements(new StructChooseByNameViewModelPlus(ideaProject), name,
+        // 如果超过限制，将被limit中断，同时返回false
+        boolean isAll = DefaultChooseByNameItemProvider.filterElements(new StructChooseByNameViewModelPlus(ideaProject), name,
                 true, new ProgressIndicatorBase(false), psiElement, processor);
-
         return result;
     }
 }

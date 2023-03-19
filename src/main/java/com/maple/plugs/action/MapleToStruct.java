@@ -24,7 +24,7 @@ import java.util.List;
  */
 public class MapleToStruct extends AnAction {
 
-    ClassSearcher classSearcher = new DefaultClassSearcher();
+    ClassSearcher classSearcher = new DefaultClassSearcher(10);
 
     final GsonBuilder gsonBuilder = new GsonBuilder().setPrettyPrinting();
 

@@ -1,8 +1,6 @@
 package com.maple.plugs.view;
 
-import com.intellij.ide.util.gotoByName.ChooseByNameModel;
-import com.intellij.ide.util.gotoByName.ChooseByNamePopup;
-import com.intellij.ide.util.gotoByName.ChooseByNameViewModel;
+import com.intellij.ide.util.gotoByName.*;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
 
@@ -58,16 +56,13 @@ public class StructChooseByNameViewModel implements ChooseByNameViewModel {
 
     @Override
     public int getMaximumListSizeLimit() {
-        return 0;
+        // 无效
+        return 10;
     }
 
 
     public void setModel(@NotNull ChooseByNameModel model) {
         this.model = model;
-    }
-
-    public Project getIdeaProject() {
-        return ideaProject;
     }
 
     public void setIdeaProject(@NotNull Project ideaProject) {
