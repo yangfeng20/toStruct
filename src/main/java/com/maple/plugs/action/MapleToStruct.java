@@ -4,6 +4,7 @@ package com.maple.plugs.action;
 import com.google.gson.GsonBuilder;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiClass;
 import com.maple.plugs.constant.ContextKeyConstant;
@@ -36,6 +37,11 @@ public class MapleToStruct extends AnAction {
         // 2.拿到class文件的字符串，内存编译class对象，并通过classLoader加载
         // 3.拼接classes地址，直接加载类的class文件路径，加载class文件
 
+
+        // todo 后续使用异步模型
+        ApplicationManager.getApplication().executeOnPooledThread(()->{
+
+        });
 
         // 初始化线程上下文
         ThreadContext.init(e);

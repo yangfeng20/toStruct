@@ -34,10 +34,15 @@ public abstract class AbsParse implements Parse {
     /**
      * 字段递归解析计数
      */
-    private final Map<String, Integer> fieldRecursionParseCountMap = new HashMap<>();
+    protected final Map<String, DescStruct> fieldRecursionParseCountMap = new HashMap<>();
 
     protected Integer fieldRecursionLimit = 2;
 
+
+    public void clearCacheMap(){
+        paramTypeMap.clear();
+        fieldRecursionParseCountMap.clear();
+    }
     @Override
     public DescStruct parseClass(PsiClass psiClass) {
         DescStruct descStruct = new DescStruct();
@@ -69,7 +74,7 @@ public abstract class AbsParse implements Parse {
     }
 
     protected void descObjectPostHandler(@NotNull DescStruct descStruct) {
-
+        this.clearCacheMap();
     }
 
     private Map<String, DescStruct> parseClass0(PsiClass psiClass) {
@@ -91,11 +96,11 @@ public abstract class AbsParse implements Parse {
     protected DescStruct parseField(PsiField psiField, PsiClass currentClass) {
         DescStruct fieldDescStruct = new DescStruct();
 
-        // 防止自身引用自身，解决无线递归
+        // 防止自身引用自身，解决无限递归 todo 影响业务
         String key = currentClass.getQualifiedName() + psiField.getName();
-        Integer fieldRecursionCount = fieldRecursionParseCountMap.compute(key, (selfKey, oldVal) -> oldVal == null ? 1 : ++oldVal);
-        if (fieldRecursionCount >= fieldRecursionLimit) {
-            return fieldDescStruct;
+        DescStruct descStruct = fieldRecursionParseCountMap.get(key);
+        if (descStruct!=null){
+            return descStruct;
         }
 
         // 获取字段描述
@@ -111,7 +116,7 @@ public abstract class AbsParse implements Parse {
 
         // 获取类名组（包含泛型，并且都是全类名）
         PsiType fieldType = psiField.getType();
-        String classNameGroupStr = ClassTypeMappingEnum.baseTypeToPackageType(fieldType.getInternalCanonicalText());
+        String classNameGroupStr = ClassTypeMappingEnum.baseTypeToPackageType(fieldType.getCanonicalText());
 
         ClassNameGroup classNameGroup = ClassNameGroupConverter.convert(classNameGroupStr);
         Class<?> loaderJdkClass = BizClassLoader.loadClassByJdk(classNameGroup.getClassName());
@@ -127,6 +132,7 @@ public abstract class AbsParse implements Parse {
                 if (Objects.isNull(innerClassNameList)) {
                     // 未指定泛型
                     fieldDescStruct.setItems(new DescStruct());
+                    fieldRecursionParseCountMap.put(key, fieldDescStruct);
                     return fieldDescStruct;
                 }
                 String listInnerParamTypeName = innerClassNameList.get(0).getClassName();
@@ -134,6 +140,7 @@ public abstract class AbsParse implements Parse {
                 List<PsiClass> paramTypeSearchResult = classSearcher.search(StringUtils.isEmpty(result) ? listInnerParamTypeName : result);
                 fieldDescStruct.setItems(parseClass(paramTypeSearchResult.get(0)));
             }
+            fieldRecursionParseCountMap.put(key, fieldDescStruct);
             return fieldDescStruct;
         }
 
@@ -154,6 +161,7 @@ public abstract class AbsParse implements Parse {
         }
 
         fieldDescStruct.setType(classTypeMappingEnum.getDesc());
+        fieldRecursionParseCountMap.put(key, fieldDescStruct);
         return fieldDescStruct;
     }
 

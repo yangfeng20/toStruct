@@ -34,6 +34,7 @@ public class StructParse extends AbsParse {
 
     @Override
     protected void descObjectPostHandler(@NotNull DescStruct descStruct) {
+        super.descObjectPostHandler(descStruct);
         if (!ignoreJavaType) {
             return;
         }
