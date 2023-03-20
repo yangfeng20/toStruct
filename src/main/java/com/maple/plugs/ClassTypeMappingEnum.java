@@ -1,5 +1,9 @@
 package com.maple.plugs;
 
+import com.maple.plugs.constant.ConstantString;
+import com.maple.plugs.loader.BizClassLoader;
+import org.apache.commons.lang3.StringUtils;
+
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.Date;
@@ -96,5 +100,36 @@ public enum ClassTypeMappingEnum {
         }
 
         return null_;
+    }
+
+    public static ClassTypeMappingEnum getByClassName(String fullClassName) {
+        if (StringUtils.isEmpty(fullClassName)) {
+            return null_;
+        }
+        // 数组类型
+        if (fullClassName.endsWith(ConstantString.ARRAY_TYPE_TAG)) {
+            ClassTypeMappingEnum array = ClassTypeMappingEnum.array;
+            String itemTypeFullName = baseTypeToPackageType(fullClassName.substring(0, fullClassName.length() - 2));
+            array.setFullClassName(itemTypeFullName);
+            return array;
+        }
+
+        Class<?> clazz = BizClassLoader.loadClassByJdk(fullClassName);
+        // 基本类型或者集合类型
+        if (clazz != null) {
+            for (ClassTypeMappingEnum item : values()) {
+                if (item.classArr == null) {
+                    continue;
+                }
+                for (Class<?> self : item.classArr) {
+                    if (self.isAssignableFrom(clazz)) {
+                        item.setFullClassName(clazz.getName());
+                        return item;
+                    }
+                }
+            }
+        }
+
+        return object;
     }
 }

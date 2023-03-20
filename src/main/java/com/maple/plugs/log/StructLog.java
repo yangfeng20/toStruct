@@ -24,6 +24,12 @@ public class StructLog {
         }
     }
 
+    public void warn(String str) {
+        if (LogLeve.WARN.getCode() >= logLeve.getCode()) {
+            System.err.println(str);
+        }
+    }
+
 
     private static volatile StructLog instance = null;
 

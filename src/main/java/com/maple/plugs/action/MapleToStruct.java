@@ -39,7 +39,7 @@ public class MapleToStruct extends AnAction {
 
 
         // todo 后续使用异步模型
-        ApplicationManager.getApplication().executeOnPooledThread(()->{
+        ApplicationManager.getApplication().executeOnPooledThread(() -> {
 
         });
 
@@ -52,7 +52,7 @@ public class MapleToStruct extends AnAction {
             List<PsiClass> result = classSearcher.search(cursorText);
 
             // 解析搜索到的PsiClass
-            Parse structParse = new StructParse(true);
+            Parse structParse = new StructParse();
 
             // PSI转换为json
             Object resultJson = structParse.parseClass(result.get(0));

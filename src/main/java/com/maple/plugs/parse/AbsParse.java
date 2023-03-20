@@ -2,21 +2,22 @@ package com.maple.plugs.parse;
 
 import com.intellij.psi.*;
 import com.maple.plugs.ClassTypeMappingEnum;
+import com.maple.plugs.GenericMapCache;
 import com.maple.plugs.constant.ConstantString;
 import com.maple.plugs.constant.ContextKeyConstant;
 import com.maple.plugs.entity.ClassNameGroup;
 import com.maple.plugs.entity.DescStruct;
 import com.maple.plugs.loader.BizClassLoader;
+import com.maple.plugs.log.StructLog;
 import com.maple.plugs.search.ClassSearcher;
 import com.maple.plugs.search.DefaultClassSearcher;
 import com.maple.plugs.utils.ClassNameGroupConverter;
-import com.maple.plugs.utils.StringUtil;
 import com.maple.plugs.utils.ThreadContext;
-import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 /**
  * @author yangfeng
@@ -34,15 +35,16 @@ public abstract class AbsParse implements Parse {
     /**
      * 字段递归解析计数
      */
-    protected final Map<String, DescStruct> fieldRecursionParseCountMap = new HashMap<>();
+    protected final Map<String, DescStruct> fieldDescStructMap = new HashMap<>();
 
     protected Integer fieldRecursionLimit = 2;
 
 
-    public void clearCacheMap(){
+    public void clearCacheMap() {
         paramTypeMap.clear();
-        fieldRecursionParseCountMap.clear();
+        fieldDescStructMap.clear();
     }
+
     @Override
     public DescStruct parseClass(PsiClass psiClass) {
         DescStruct descStruct = new DescStruct();
@@ -50,11 +52,8 @@ public abstract class AbsParse implements Parse {
         // 获取全选定类名，并转换为包装类型
         String qualifiedName = ClassTypeMappingEnum.baseTypeToPackageType(psiClass.getQualifiedName());
 
-        paramTypeMap.put(ConstantString.CURRENT_CLASS_NAME, qualifiedName);
-        PsiTypeParameterList typeParameterList = psiClass.getTypeParameterList();
-        if (Objects.nonNull(typeParameterList)) {
-            paramTypeMap.put(qualifiedName + StringUtil.getFirstParamTypeName(typeParameterList.getText()), (String) ThreadContext.get(ContextKeyConstant.PARAM_TYPE));
-        }
+        // 如果有泛型参数，构建泛型和真实类的映射
+        paramTypeMap.put(qualifiedName, (String) ThreadContext.get(ContextKeyConstant.PARAM_TYPE));
 
         // 如果普通类加载器能加载，说明是jdk中的类【基本数据类型或者集合】
         Class<?> loadClassByJdk = BizClassLoader.loadClassByJdk(qualifiedName);
@@ -96,10 +95,10 @@ public abstract class AbsParse implements Parse {
     protected DescStruct parseField(PsiField psiField, PsiClass currentClass) {
         DescStruct fieldDescStruct = new DescStruct();
 
-        // 防止自身引用自身，解决无限递归 todo 影响业务
-        String key = currentClass.getQualifiedName() + psiField.getName();
-        DescStruct descStruct = fieldRecursionParseCountMap.get(key);
-        if (descStruct!=null){
+        // 防止自身引用自身，解决无限递归
+        String key = currentClass.getQualifiedName() + ConstantString.DIT + psiField.getName();
+        DescStruct descStruct = fieldDescStructMap.get(key);
+        if (descStruct != null) {
             return descStruct;
         }
 
@@ -116,52 +115,44 @@ public abstract class AbsParse implements Parse {
 
         // 获取类名组（包含泛型，并且都是全类名）
         PsiType fieldType = psiField.getType();
-        String classNameGroupStr = ClassTypeMappingEnum.baseTypeToPackageType(fieldType.getCanonicalText());
+        String fieldTypeText = ClassTypeMappingEnum.baseTypeToPackageType(fieldType.getCanonicalText());
+        ClassNameGroup classNameGroup = ClassNameGroupConverter.convert(fieldTypeText);
 
-        ClassNameGroup classNameGroup = ClassNameGroupConverter.convert(classNameGroupStr);
-        Class<?> loaderJdkClass = BizClassLoader.loadClassByJdk(classNameGroup.getClassName());
-        ClassTypeMappingEnum classTypeMappingEnum = ClassTypeMappingEnum.getByClass(loaderJdkClass);
-        if (Objects.nonNull(loaderJdkClass)) {
-            // 是java中的类型【基本数据类型,集合类型,str,date】
-            fieldDescStruct.setType(classTypeMappingEnum.getDesc());
-            fieldDescStruct.setJavaType(classNameGroup.getClassName());
+        // 获取字段类型映射
+        ClassTypeMappingEnum typeMappingEnum = ClassTypeMappingEnum.getByClassName(classNameGroup.getClassName());
+        String fieldTypeFullName = typeMappingEnum.getFullClassName();
 
-            // 如果是集合类型
-            if (ClassTypeMappingEnum.array.equals(classTypeMappingEnum)) {
-                List<ClassNameGroup> innerClassNameList = classNameGroup.getInnerClassNameList();
-                if (Objects.isNull(innerClassNameList)) {
-                    // 未指定泛型
-                    fieldDescStruct.setItems(new DescStruct());
-                    fieldRecursionParseCountMap.put(key, fieldDescStruct);
-                    return fieldDescStruct;
+        // 设置映射类型并添加的缓存提前暴露
+        fieldDescStruct.setType(typeMappingEnum.getDesc());
+        fieldDescStructMap.put(key, fieldDescStruct);
+
+        Function<String, String> getParamMapping = k -> GenericMapCache.get(currentClass.getQualifiedName());
+
+        switch (typeMappingEnum) {
+            case null_:
+                StructLog.getLogger().warn("类名为空");
+                break;
+            case array:
+                List<PsiClass> itemClassSearchResult = classSearcher.search(getParamMapping.apply(fieldTypeFullName));
+                if (Objects.nonNull(itemClassSearchResult)) {
+                    fieldDescStruct.setItems(parseClass(itemClassSearchResult.get(0)));
+                } else {
+                    StructLog.getLogger().warn("集合的泛型未搜索到结果：" + fieldTypeFullName);
                 }
-                String listInnerParamTypeName = innerClassNameList.get(0).getClassName();
-                String result = paramTypeMap.get(paramTypeMap.get(ConstantString.CURRENT_CLASS_NAME) + listInnerParamTypeName);
-                List<PsiClass> paramTypeSearchResult = classSearcher.search(StringUtils.isEmpty(result) ? listInnerParamTypeName : result);
-                fieldDescStruct.setItems(parseClass(paramTypeSearchResult.get(0)));
-            }
-            fieldRecursionParseCountMap.put(key, fieldDescStruct);
-            return fieldDescStruct;
+                break;
+            case object:
+                List<PsiClass> propertyClassSearchResult = classSearcher.search(getParamMapping.apply(classNameGroup.getClassName()));
+                if (Objects.nonNull(propertyClassSearchResult)) {
+                    fieldDescStruct.setProperties(parseClass0(propertyClassSearchResult.get(0)));
+                } else {
+                    StructLog.getLogger().warn("对象的泛型未搜索到结果：" + classNameGroup.getClassName());
+                }
+                break;
+            default:
+
+                break;
         }
 
-        // 数组类型
-        if (classNameGroup.getClassName().contains(ConstantString.ARRAY_TYPE_TAG)) {
-            fieldDescStruct.setType(ClassTypeMappingEnum.array.getDesc());
-            fieldDescStruct.setJavaType("array");
-            DescStruct arrayItems = new DescStruct();
-            arrayItems.setType(ClassTypeMappingEnum.baseTypeToPackageType(classNameGroupStr.substring(0, classNameGroupStr.length() - 2)));
-            fieldDescStruct.setItems(arrayItems);
-        }
-
-        // 如果是对象类型
-        if (ClassTypeMappingEnum.object.equals(classTypeMappingEnum)) {
-            String result = paramTypeMap.get(paramTypeMap.get(ConstantString.CURRENT_CLASS_NAME) + classNameGroup.getClassName());
-            List<PsiClass> bizClassSearchResultList = classSearcher.search(StringUtils.isEmpty(result) ? classNameGroup.getClassName() : result);
-            fieldDescStruct.setProperties(parseClass0(bizClassSearchResultList.get(0)));
-        }
-
-        fieldDescStruct.setType(classTypeMappingEnum.getDesc());
-        fieldRecursionParseCountMap.put(key, fieldDescStruct);
         return fieldDescStruct;
     }
 

@@ -8,11 +8,12 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.util.PsiUtilBase;
-import com.maple.plugs.constant.ContextKeyConstant;
+import com.maple.plugs.entity.ClassNameGroup;
 
 import java.util.Arrays;
-import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 /**
  * @author yangfeng
@@ -22,17 +23,41 @@ import java.util.Optional;
 
 public class CursorUtil {
 
+
     public static String getCursorText() {
         // 光标所在PsiElement
         PsiElement cursorPsiElement = getCursorPsiElement();
 
-        PsiElement nextSibling = cursorPsiElement.getNextSibling();
-        if (Objects.nonNull(nextSibling)){
-            String paramType = nextSibling.getText();
-            // 去除泛型参数的左右尖括号
-            ThreadContext.put(ContextKeyConstant.PARAM_TYPE, StringUtil.getFirstParamTypeName(paramType));
-        }
+        // 光标最近泛型字符串
+        String cursorGenericStr = getCursorGenericStr(cursorPsiElement);
+        ClassNameGroup classNameGroup = ClassNameGroupConverter.convert(cursorGenericStr);
+
+        // 构建泛型映射
+        //GenericMapCache.buildMapping(classNameGroup, null);
         return cursorPsiElement.getText();
+    }
+
+    public static String getCursorGenericStr(PsiElement psiElement) {
+        String lineStr = getLineEnd(psiElement);
+        int lastIndexOf = lineStr.lastIndexOf(">");
+        lineStr = lineStr.substring(0, lastIndexOf + 1);
+        return lineStr.replaceFirst(".*?[extends|implements]\\s+", "");
+    }
+
+    public static String getLineEnd(PsiElement psiElement) {
+        AtomicReference<Function<PsiElement, String>> reference = new AtomicReference<>();
+        Function<PsiElement, String> buildCache = element -> {
+            if (element == null) {
+                return "";
+            }
+            String text = element.getText();
+            if (text.contains("\n")) {
+                return text.substring(0, text.indexOf("\n"));
+            }
+            return text + reference.get().apply(element.getNextSibling());
+        };
+        reference.set(buildCache);
+        return buildCache.apply(psiElement);
     }
 
     public static PsiElement getCursorPsiElement() {
@@ -57,7 +82,7 @@ public class CursorUtil {
 
         // 获取到光标所在的父元素
         PsiElement parentElement = PsiTreeUtil.getParentOfType(cursorElement, PsiTypeParameterListOwner.class);
-        if (parentElement instanceof PsiMethod){
+        if (parentElement instanceof PsiMethod) {
             ((PsiMethod) parentElement).getParameterList();
         }
         if (parentElement instanceof PsiClass) {
@@ -90,7 +115,7 @@ public class CursorUtil {
 
             // 处理泛型信息，返回处理结果
             if (psiType instanceof PsiClassType) {
-                PsiClassType classType = (PsiClassType)psiType;
+                PsiClassType classType = (PsiClassType) psiType;
                 PsiType[] types = classType.getParameters();
                 StringBuilder sb = new StringBuilder();
                 for (PsiType type : types) {

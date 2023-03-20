@@ -19,5 +19,9 @@ public class ClassNameGroupConverterTest extends LightJavaCodeInsightFixtureTest
         String genericString = "java.util.List<java.util.Map<java.lang.String, java.util.List<java.util.Map<java.lang.String, java.lang.String>>>>";
         ClassNameGroup classNameGroup = ClassNameGroupConverter.convert(genericString);
         System.out.println(classNameGroup);
+
+        String genericString1 = "Request<InnerParseResult<InnerPackageFileResult>>";
+        ClassNameGroup classNameGroup1 = ClassNameGroupConverter.convert(genericString1);
+        System.out.println(classNameGroup1);
     }
 }
