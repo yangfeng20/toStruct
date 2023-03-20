@@ -32,8 +32,10 @@ intellij {
 patchPluginXml {
     changeNotes = """
       <br>v1.0<br>
-      <em>toStruct plugs update</em>
-      <em>test 更新日志</em>"""
+      <em>generics support</em>
+      <em>更新日志</em>
+      <em>支持泛型</em>
+      """
 }
 
 tasks.withType(JavaCompile) {

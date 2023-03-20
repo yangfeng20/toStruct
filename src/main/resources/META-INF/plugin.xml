@@ -6,7 +6,35 @@
 
     <description><![CDATA[
         toStruct
-        我的插件---------------------------------------------------------
+        将JavaBean转换为对象描述的json结构
+        例如：
+        Student {
+
+            ApiModelProperty("学生姓名")
+            private String name;
+
+            ApiModelProperty("学号")
+            private Long id;
+
+        }
+
+        result:
+
+        {
+        "type":"object",
+
+        "property":
+            {
+                "name":
+                {
+                    "type":"string"
+                },
+                "id":
+                {
+                    "type":"long"
+                }
+            }
+        }
     ]]></description>
 
     <!-- please see https://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
@@ -17,16 +45,7 @@
     <!--<depends>com.intellij.modules.java</depends>-->
 
 
-    <extensions defaultExtensionNs="com.intellij">
-        <localInspection
-                id="inspection.JavaInspection"
-                language="JAVA"
-                shortName="JavaInspection"
-                displayName="JavaInspection"
-                groupName="JavaInspection"
-                enabledByDefault="true"
-                level="ERROR"
-                implementationClass="com.maple.plugs.misc.JavaInspection"/>
+    <extensions defaultExtensionNs="com.intellij">(
 
         <notificationGroup id="com.maple.plugs.action.MapleToStruct"
                            displayType="BALLOON"
@@ -34,15 +53,8 @@
     </extensions>
 
 
-
-
-
     <actions>
         <!-- Add your actions here -->
-        <action id="com.maple.plugs.action.MapleAction" class="com.maple.plugs.action.MapleAction" text="哈哈" description="我是啊哈哈">
-            <add-to-group group-id="HelpMenu" anchor="first"/>
-            <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl H"/>
-        </action>
         <action id="toStruct" class="com.maple.plugs.action.MapleToStruct" text="ToStruct" description="To转换为结构化json数据">
             <add-to-group group-id="Copy.Paste.Special" anchor="last"/>
         </action>
