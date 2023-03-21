@@ -13,6 +13,7 @@ import com.maple.plugs.search.ClassSearcher;
 import com.maple.plugs.search.DefaultClassSearcher;
 import com.maple.plugs.utils.ClassNameGroupConverter;
 import com.maple.plugs.utils.ThreadContext;
+import org.apache.commons.collections.CollectionUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -126,7 +127,7 @@ public abstract class AbsParse implements Parse {
         fieldDescStruct.setType(typeMappingEnum.getDesc());
         fieldDescStructMap.put(key, fieldDescStruct);
 
-        Function<String, String> getParamMapping = k -> GenericMapCache.get(currentClass.getQualifiedName());
+        Function<String, String> getParamMapping = GenericMapCache::get;
 
         switch (typeMappingEnum) {
             case null_:
@@ -142,7 +143,7 @@ public abstract class AbsParse implements Parse {
                 break;
             case object:
                 List<PsiClass> propertyClassSearchResult = classSearcher.search(getParamMapping.apply(classNameGroup.getClassName()));
-                if (Objects.nonNull(propertyClassSearchResult)) {
+                if (CollectionUtils.isNotEmpty(propertyClassSearchResult)) {
                     fieldDescStruct.setProperties(parseClass0(propertyClassSearchResult.get(0)));
                 } else {
                     StructLog.getLogger().warn("对象的泛型未搜索到结果：" + classNameGroup.getClassName());
