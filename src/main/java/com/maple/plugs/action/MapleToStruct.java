@@ -16,6 +16,7 @@ import com.maple.plugs.utils.ClipboardHandler;
 import com.maple.plugs.utils.CursorUtil;
 import com.maple.plugs.utils.Notifier;
 import com.maple.plugs.utils.ThreadContext;
+import org.apache.commons.collections.CollectionUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -46,10 +47,16 @@ public class MapleToStruct extends AnAction {
         // 初始化线程上下文
         ThreadContext.init(e);
         Project project = (Project) ThreadContext.get(ContextKeyConstant.PROJECT);
+        boolean exception = true;
 
         try {
             String cursorText = CursorUtil.getCursorText();
             List<PsiClass> result = classSearcher.search(cursorText);
+            if (CollectionUtils.isEmpty(result)) {
+                Notifier.notifyWarn("ToStruct【 " + cursorText + " 】not a valid class name, not find in your project", project);
+                exception = false;
+                return;
+            }
 
             // 解析搜索到的PsiClass
             Parse structParse = new StructParse();
@@ -61,12 +68,13 @@ public class MapleToStruct extends AnAction {
             // 剪切板
             ClipboardHandler.copyToClipboard(jsonStr);
             // 通知
-            Notifier.notifyInfo("ToStruct Convert " + cursorText + " to Struct", project);
+            Notifier.notifyInfo("ToStruct【 " + cursorText + " 】convert to struct json on your clipboard", project);
             ThreadContext.clear();
-        } catch (Exception exception) {
-            exception.printStackTrace();
-            Notifier.notifyError("ToStruct 发生异常", project);
+            exception = false;
         } finally {
+            if (exception) {
+                Notifier.notifyError("ToStruct 发生异常", project);
+            }
             ThreadContext.clear();
         }
 
