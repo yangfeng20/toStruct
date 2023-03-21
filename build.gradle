@@ -31,10 +31,10 @@ intellij {
 }
 patchPluginXml {
     changeNotes = """
-      <br>v1.0<br>
-      <em>generics support</em>
+      <br>v1.0.1<br>
+      <em>remove stack overflow caused by generics</em>
       <em>更新日志</em>
-      <em>支持泛型</em>
+      <em>移除泛型导致的堆栈溢出</em>
       """
 }
 

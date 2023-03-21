@@ -354,5 +354,4 @@
     <orderEntry type="library" scope="RUNTIME" name="Gradle: org.junit.jupiter:junit-jupiter-engine:5.6.0" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: org.junit.platform:junit-platform-engine:1.6.0" level="project" />
   </component>
-  <component name="TestModuleProperties" production-module="ToStruct.main" />
 </module>
