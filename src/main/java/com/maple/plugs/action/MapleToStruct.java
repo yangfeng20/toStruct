@@ -4,7 +4,6 @@ package com.maple.plugs.action;
 import com.google.gson.GsonBuilder;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiClass;
 import com.maple.plugs.constant.ContextKeyConstant;
@@ -39,11 +38,6 @@ public class MapleToStruct extends AnAction {
         // 3.拼接classes地址，直接加载类的class文件路径，加载class文件
 
 
-        // todo 后续使用异步模型
-        ApplicationManager.getApplication().executeOnPooledThread(() -> {
-
-        });
-
         // 初始化线程上下文
         ThreadContext.init(e);
         Project project = (Project) ThreadContext.get(ContextKeyConstant.PROJECT);
@@ -73,7 +67,7 @@ public class MapleToStruct extends AnAction {
             exception = false;
         } finally {
             if (exception) {
-                Notifier.notifyError("ToStruct 发生异常", project);
+                Notifier.notifyError("ToStruct an internal exception occured, The error stack information can be fed back to the author via github", project);
             }
             ThreadContext.clear();
         }
