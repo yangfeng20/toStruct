@@ -1,8 +1,6 @@
 package com.maple.plugs.view;
 
-import com.intellij.ide.util.gotoByName.ChooseByNameModel;
-import com.intellij.ide.util.gotoByName.ChooseByNamePopup;
-import com.intellij.ide.util.gotoByName.ChooseByNameViewModel;
+import com.intellij.ide.util.gotoByName.*;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
 
@@ -11,7 +9,7 @@ import org.jetbrains.annotations.NotNull;
  * @date : 2023/3/2 1:14
  * desc: 按照名称选择弹窗框
  * <p>
- *主要包含【类转换模型】以及当前【project】
+ * 主要包含【类转换模型】以及当前【project】
  */
 
 
@@ -58,16 +56,13 @@ public class StructChooseByNameViewModel implements ChooseByNameViewModel {
 
     @Override
     public int getMaximumListSizeLimit() {
-        return 0;
+        // 无效
+        return 10;
     }
 
 
     public void setModel(@NotNull ChooseByNameModel model) {
         this.model = model;
-    }
-
-    public Project getIdeaProject() {
-        return ideaProject;
     }
 
     public void setIdeaProject(@NotNull Project ideaProject) {

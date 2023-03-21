@@ -1,5 +1,6 @@
 package com.maple.plugs.utils.reflect;
 
+import com.maple.plugs.log.StructLog;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.InvocationTargetException;
@@ -18,12 +19,8 @@ import java.util.function.Consumer;
 public class ReflectUtil {
 
     @SuppressWarnings("all")
-    public static <T> T invokeNoArg(Object target, String methodName, Class<T> returnClass) {
-        return (T) invoke(target, methodName, null);
-    }
-
-    public static Object invokeNoArg(Object target, String methodName) {
-        return invoke(target, methodName, null);
+    public static <T> T invokeResultType(Object target, String methodName, Class<T> returnClass) {
+        return (T) invoke(target, methodName);
     }
 
 
@@ -31,19 +28,18 @@ public class ReflectUtil {
      * @param target
      * @param methodName
      * @param args
-     * @param parameterTypes
      * @return
      */
-    public static Object invoke(Object target, String methodName, Object[] args, Class<?>... parameterTypes) {
+    public static Object invoke(Object target, String methodName, Object ...args) {
         if (Objects.isNull(args)) {
             args = new Object[]{};
         }
         Class<?> clazz = target.getClass();
         Method targetMethod;
         try {
-            targetMethod = clazz.getDeclaredMethod(methodName, parameterTypes);
+            targetMethod = clazz.getDeclaredMethod(methodName, getClasses(args));
         } catch (NoSuchMethodException e) {
-            e.printStackTrace();
+            StructLog.getLogger().printStackTrace(e);
             return null;
         }
 
@@ -52,11 +48,29 @@ public class ReflectUtil {
         try {
             returnVal = targetMethod.invoke(target, args);
         } catch (IllegalAccessException | InvocationTargetException e) {
-            e.printStackTrace();
+            StructLog.getLogger().printStackTrace(e);
         }
 
         return returnVal;
     }
+
+
+    /**
+     * 获得对象数组的类数组
+     *
+     * @param objects 对象数组，如果数组中存在{@code null}元素，则此元素被认为是Object类型
+     * @return 类数组
+     */
+    public static Class<?>[] getClasses(Object... objects) {
+        Class<?>[] classes = new Class<?>[objects.length];
+        Object obj;
+        for (int i = 0; i < objects.length; i++) {
+            obj = objects[i];
+            classes[i] = (null == obj) ? Object.class : obj.getClass();
+        }
+        return classes;
+    }
+
 
     public static void listForEach(List<Object> iteration, Consumer<Object> action) {
         iteration.forEach(action);

@@ -11,4 +11,6 @@ public class ContextKeyConstant {
     public static final String EVENT = "event";
 
     public static final String PROJECT = "project";
+
+    public static final String PARAM_TYPE = "param_type";
 }
