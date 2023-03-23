@@ -30,6 +30,8 @@ intellij {
     plugins = ['java']
 }
 patchPluginXml {
+    sinceBuild.set("203")
+    untilBuild.set("223.*")
     changeNotes = """
       <br>v1.0.1<br>
       <em>remove stack overflow caused by generics</em>
