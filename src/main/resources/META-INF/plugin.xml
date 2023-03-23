@@ -2,39 +2,46 @@
     <id>com.maple.plugs</id>
     <name>ToStruct</name>
     <version>1.0</version>
-    <vendor email="maple_20@qq.com">maple</vendor>
+    <vendor email="maple_yang_20@qq.com">maple</vendor>
 
     <description><![CDATA[
-        toStruct
-        将JavaBean转换为对象描述的json结构
-        例如：
-        Student {
+        EN:
 
-            ApiModelProperty("学生姓名")
-            private String name;
+        Converts the JavaBean into a json structure for the object description,
+        Usage: Move the cursor to any class name in the editor and
+        right-click-->copy/paste special-->ToStruct
+        Structured structures will be added to your clipboard
 
-            ApiModelProperty("学号")
-            private Long id;
+        CN:
+        将JavaBean转换为对象描述的json结构；使用方法：将光标移动至编辑器任意类名上，右键-->copy/paste special-->ToStruct
+        结构化结构将添加到您的剪切板
 
-        }
+
+        example：
+            public class Address {
+
+                @ApiModelProperty("地址城市")
+                private String city;
+
+                @ApiModelProperty("地址国家")
+                private String country;
+            }
 
         result:
-
-        {
-        "type":"object",
-
-        "property":
             {
-                "name":
-                {
-                    "type":"string"
+              "type": "object",
+              "properties": {
+                "city": {
+                  "type": "string",
+                  "description": "地址城市"
                 },
-                "id":
-                {
-                    "type":"long"
+                "country": {
+                  "type": "string",
+                  "description": "地址国家"
                 }
+              }
             }
-        }
+
     ]]></description>
 
     <!-- please see https://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
