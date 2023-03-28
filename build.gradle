@@ -4,7 +4,7 @@ plugins {
 }
 
 group 'com.maple'
-version '1.0.2-SNAPSHOT'
+version '1.0.3-SNAPSHOT'
 
 // jvm版本号
 java {
@@ -32,12 +32,6 @@ intellij {
 patchPluginXml {
     sinceBuild.set("203")
     untilBuild.set("223.*")
-    changeNotes = """
-      <br>v1.0.2<br>
-      <em>remove stack overflow caused by generics</em>
-      <em>更新日志</em>
-      <em>移除泛型导致的堆栈溢出</em>
-      """
 }
 
 tasks.withType(JavaCompile) {
