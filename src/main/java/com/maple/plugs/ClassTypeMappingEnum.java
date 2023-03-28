@@ -40,7 +40,9 @@ public enum ClassTypeMappingEnum {
     private String fullClassName;
 
     public String getFullClassName() {
-        return fullClassName;
+        String result = this.fullClassName;
+        this.fullClassName = "";
+        return result;
     }
 
     public void setFullClassName(String name) {

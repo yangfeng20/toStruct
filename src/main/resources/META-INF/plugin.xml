@@ -56,17 +56,16 @@
     <!--<depends>com.intellij.modules.java</depends>-->
 
 
-    <extensions defaultExtensionNs="com.intellij">(
+    <extensions defaultExtensionNs="com.intellij">
 
-        <notificationGroup id="com.maple.plugs.action.MapleToStruct"
-                           displayType="BALLOON"
-                           key="com.maple.plugs.action.MapleToStruct"/>
+        <notificationGroup id="com.maple.plugs.action.ToStructAction"
+                           displayType="BALLOON"/>
     </extensions>
 
 
     <actions>
         <!-- Add your actions here -->
-        <action id="toStruct" class="com.maple.plugs.action.MapleToStruct" text="ToStruct" description="To转换为结构化json数据">
+        <action id="toStruct" class="com.maple.plugs.action.ToStructAction" text="ToStruct" description="To转换为结构化json数据">
             <add-to-group group-id="Copy.Paste.Special" anchor="last"/>
         </action>
     </actions>

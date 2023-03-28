@@ -19,4 +19,14 @@ public interface ClassSearcher {
      * @return {@link List}<{@link Object}>
      */
     List<PsiClass> search(String name);
+
+    /**
+     * 找到第一个
+     *
+     * @param name 名字
+     * @return {@link PsiClass}
+     */
+    PsiClass findFirst(String name);
+
+    void clear();
 }

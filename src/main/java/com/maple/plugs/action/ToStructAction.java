@@ -7,6 +7,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiClass;
 import com.maple.plugs.constant.ContextKeyConstant;
+import com.maple.plugs.entity.ClassNameGroup;
 import com.maple.plugs.parse.Parse;
 import com.maple.plugs.parse.StructParse;
 import com.maple.plugs.search.ClassSearcher;
@@ -15,15 +16,15 @@ import com.maple.plugs.utils.ClipboardHandler;
 import com.maple.plugs.utils.CursorUtil;
 import com.maple.plugs.utils.Notifier;
 import com.maple.plugs.utils.ThreadContext;
-import org.apache.commons.collections.CollectionUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author maple
  */
-public class MapleToStruct extends AnAction {
+public class ToStructAction extends AnAction {
 
     ClassSearcher classSearcher = new DefaultClassSearcher(10);
 
@@ -45,18 +46,18 @@ public class MapleToStruct extends AnAction {
 
         try {
             String cursorText = CursorUtil.getCursorText();
-            List<PsiClass> result = classSearcher.search(cursorText);
-            if (CollectionUtils.isEmpty(result)) {
+            PsiClass result = classSearcher.findFirst(cursorText);
+            if (Objects.isNull(result)) {
                 Notifier.notifyWarn("ToStruct【 " + cursorText + " 】not a valid class name, not find in your project", project);
                 exception = false;
                 return;
             }
-
             // 解析搜索到的PsiClass
             Parse structParse = new StructParse();
 
             // PSI转换为json
-            Object resultJson = structParse.parseClass(result.get(0));
+            List<ClassNameGroup> innerClassNameList = CursorUtil.getCursorClassGroup().getInnerClassNameList();
+            Object resultJson = structParse.parseClass(result, innerClassNameList);
             String jsonStr = gsonBuilder.create().toJson(resultJson);
 
             // 剪切板
@@ -69,6 +70,7 @@ public class MapleToStruct extends AnAction {
             if (exception) {
                 Notifier.notifyError("ToStruct an internal exception occured, The error stack information can be fed back to the author via github", project);
             }
+            classSearcher.clear();
             ThreadContext.clear();
         }
 

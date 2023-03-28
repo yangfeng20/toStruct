@@ -37,6 +37,15 @@ public class CursorUtil {
         return cursorPsiElement.getText();
     }
 
+    public static ClassNameGroup getCursorClassGroup() {
+        // 光标所在PsiElement
+        PsiElement cursorPsiElement = getCursorPsiElement();
+
+        // 光标最近泛型字符串
+        String cursorGenericStr = getCursorGenericStr(cursorPsiElement);
+        return ClassNameGroupConverter.convert(cursorGenericStr);
+    }
+
     public static String getCursorGenericStr(PsiElement psiElement) {
         String lineStr = getLineEnd(psiElement);
         int lastIndexOf = lineStr.lastIndexOf(">");

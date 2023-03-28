@@ -21,7 +21,7 @@ public class Notifier {
 
     public static void notify(String content, NotificationType type, Project project) {
         NotificationGroupManager.getInstance()
-                .getNotificationGroup("com.maple.plugs.action.MapleToStruct")
+                .getNotificationGroup("com.maple.plugs.action.ToStructAction")
                 .createNotification(content, type)
                 .notify(project);
     }

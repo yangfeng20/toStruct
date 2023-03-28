@@ -1,5 +1,6 @@
 package com.maple.plugs.entity;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -9,13 +10,13 @@ import java.util.Map;
  */
 
 
-public class DescStruct {
+public class DescStruct implements Cloneable {
 
     private String type;
 
     private String description;
 
-    private Map<String,DescStruct> properties;
+    private Map<String, DescStruct> properties;
 
     private DescStruct items;
 
@@ -23,6 +24,25 @@ public class DescStruct {
 
 
     public DescStruct() {
+    }
+
+    @Override
+    public DescStruct clone() {
+        try {
+            DescStruct cloned = (DescStruct) super.clone();
+            if (cloned.properties != null) {
+                cloned.properties = new HashMap<>((int) (properties.size() / 0.75) + 1);
+                for (Map.Entry<String, DescStruct> entry : properties.entrySet()) {
+                    cloned.properties.put(entry.getKey(), entry.getValue().clone());
+                }
+            }
+            if (cloned.items != null) {
+                cloned.items = cloned.items.clone();
+            }
+            return cloned;
+        } catch (CloneNotSupportedException e) {
+            throw new AssertionError(e);
+        }
     }
 
     public String getType() {

@@ -1,7 +1,10 @@
 package com.maple.plugs.parse;
 
 import com.intellij.psi.PsiClass;
+import com.maple.plugs.entity.ClassNameGroup;
 import com.maple.plugs.entity.DescStruct;
+
+import java.util.List;
 
 /**
  * @author yangfeng
@@ -16,5 +19,5 @@ public interface Parse {
      *
      * @param psiClass psi类
      */
-    DescStruct parseClass(PsiClass psiClass);
+    DescStruct parseClass(PsiClass psiClass, List<ClassNameGroup> genericList);
 }

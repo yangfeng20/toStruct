@@ -18,6 +18,11 @@ public class ClassNameGroup {
     public ClassNameGroup() {
     }
 
+    public ClassNameGroup(String className, List<ClassNameGroup> innerClassNameList) {
+        this.className = className;
+        this.innerClassNameList = innerClassNameList;
+    }
+
     public String getClassName() {
         return className;
     }
