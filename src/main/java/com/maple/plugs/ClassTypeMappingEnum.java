@@ -23,7 +23,7 @@ public enum ClassTypeMappingEnum {
      */
     null_("", null, ""),
     string("string", new Class[]{String.class, Date.class, Character.class}, ""),
-    int_("int", new Class[]{Integer.class, Byte.class, Short.class}, ""),
+    int_("integer", new Class[]{Integer.class, Byte.class, Short.class}, ""),
     long_("long", new Class[]{Long.class}, ""),
     bigDecimal("number", new Class[]{BigDecimal.class, Float.class, Double.class}, ""),
     boolean_("boolean", new Class[]{Boolean.class}, ""),

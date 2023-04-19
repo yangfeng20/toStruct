@@ -2,9 +2,7 @@ package com.maple.plugs.parse;
 
 import com.intellij.psi.*;
 import com.maple.plugs.ClassTypeMappingEnum;
-import com.maple.plugs.GenericMapCache;
 import com.maple.plugs.constant.ConstantString;
-import com.maple.plugs.constant.ContextKeyConstant;
 import com.maple.plugs.entity.ClassNameGroup;
 import com.maple.plugs.entity.DescStruct;
 import com.maple.plugs.loader.BizClassLoader;
@@ -12,13 +10,11 @@ import com.maple.plugs.log.StructLog;
 import com.maple.plugs.search.ClassSearcher;
 import com.maple.plugs.search.DefaultClassSearcher;
 import com.maple.plugs.utils.ClassNameGroupConverter;
-import com.maple.plugs.utils.ThreadContext;
 import org.apache.commons.collections.CollectionUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 
 /**
  * @author yangfeng
@@ -31,8 +27,6 @@ public abstract class AbsParse implements Parse {
 
     private final ClassSearcher classSearcher = new DefaultClassSearcher();
 
-    private final Map<String, String> paramTypeMap = new HashMap<>();
-
     /**
      * 字段递归解析计数
      */
@@ -42,7 +36,6 @@ public abstract class AbsParse implements Parse {
 
 
     public void clearCacheMap() {
-        paramTypeMap.clear();
         fieldDescStructMap.clear();
         classSearcher.clear();
     }
@@ -53,9 +46,6 @@ public abstract class AbsParse implements Parse {
 
         // 获取全选定类名，并转换为包装类型
         String qualifiedName = ClassTypeMappingEnum.baseTypeToPackageType(psiClass.getQualifiedName());
-
-        // 如果有泛型参数，构建泛型和真实类的映射
-        paramTypeMap.put(qualifiedName, (String) ThreadContext.get(ContextKeyConstant.PARAM_TYPE));
 
         // 如果普通类加载器能加载，说明是jdk中的类【基本数据类型或者集合】
         Class<?> loadClassByJdk = BizClassLoader.loadClassByJdk(qualifiedName);
@@ -121,54 +111,79 @@ public abstract class AbsParse implements Parse {
         // 获取类名组（包含泛型，并且都是全类名）
         PsiType fieldType = psiField.getType();
         String fieldTypeText = ClassTypeMappingEnum.baseTypeToPackageType(fieldType.getCanonicalText());
-        ClassNameGroup classNameGroup = ClassNameGroupConverter.convert(fieldTypeText);
-        // 点击光标所在处有多级泛型
-        if (CollectionUtils.isEmpty(classNameGroup.getInnerClassNameList()) && CollectionUtils.isNotEmpty(genericList)){
-            classNameGroup.setInnerClassNameList(genericList.get(0).getInnerClassNameList());
+        /*
+*         字段类型组（当前为文件的真实文本【字段类型和字段类型的泛型】）
+*         public class Entity<T> {
+*
+*             private T data;
+*             private List<T> result;
+*
+*         }
+*       data字段：ClassNameGroup(className=T, innerClassNameList=null)
+*       data字段：ClassNameGroup(className=List, innerClassNameList=T)
+         */
+        ClassNameGroup fieldTypeGroup = ClassNameGroupConverter.convert(fieldTypeText);
+        // 处理字段的类型的泛型
+        if (CollectionUtils.isEmpty(fieldTypeGroup.getInnerClassNameList()) && CollectionUtils.isNotEmpty(genericList)){
+            fieldTypeGroup.setInnerClassNameList(genericList.get(0).getInnerClassNameList());
         }
         if (CollectionUtils.isNotEmpty(genericList) && genericList.stream().map(ClassNameGroup::getClassName)
-                .anyMatch(item -> Objects.equals(item, classNameGroup.getClassName()))) {
+                .anyMatch(item -> Objects.equals(item, fieldTypeGroup.getClassName()))) {
             // 当前字段是泛型，同时没有指定泛型
             return fieldDescStruct;
         }
 
 
         // 构建自身引用的泛型
-        PsiTypeParameterList typeParameterList = currentClass.getTypeParameterList();
-        if (Objects.nonNull(typeParameterList) && typeParameterList.getTypeParameters().length > 0) {
+        PsiTypeParameterList currentClassParameterList = currentClass.getTypeParameterList();
+        if (Objects.nonNull(currentClassParameterList) && currentClassParameterList.getTypeParameters().length > 0) {
             int count = 0;
-            for (PsiTypeParameter typeParameter : typeParameterList.getTypeParameters()) {
-                if (Objects.equals(typeParameter.getText(), classNameGroup.getClassName()) && CollectionUtils.isNotEmpty(genericList)) {
-                    classNameGroup.setClassName(genericList.get(count).getClassName());
+            // 当前类的参数化类型
+            for (PsiTypeParameter classParameter : currentClassParameterList.getTypeParameters()) {
+                // 当前类的泛型参数定义：例如【T】
+                String classGenericDefine = classParameter.getText();
+                // note 如果当前类的泛型定义和字段的泛型定义一致，使用真实类型替换泛型
+                if (Objects.equals(classGenericDefine, fieldTypeGroup.getClassName()) && CollectionUtils.isNotEmpty(genericList)) {
+                    fieldTypeGroup.setClassName(genericList.get(count).getClassName());
                     break;
+                }
+                // note 如果当前类的泛型定义和字段的【类型】的泛型定义一致，使用真实类型替换泛型
+                if (CollectionUtils.isNotEmpty(fieldTypeGroup.getInnerClassNameList())){
+                    // 字段类型的泛型
+                    List<ClassNameGroup> fieldTypeGenericList = new ArrayList<>();
+                    for (ClassNameGroup fieldClassParameter : fieldTypeGroup.getInnerClassNameList()) {
+                        if (Objects.equals(classGenericDefine, fieldClassParameter.getClassName())) {
+                            ClassNameGroup fieldTypeGeneric = new ClassNameGroup(genericList.get(count).getClassName(), genericList.get(count).getInnerClassNameList());
+                            fieldTypeGenericList.add(fieldTypeGeneric);
+                        }
+                        fieldTypeGroup.setInnerClassNameList(fieldTypeGenericList);
+                    }
                 }
                 count++;
             }
         }
 
         // 获取字段类型映射
-        ClassTypeMappingEnum typeMappingEnum = ClassTypeMappingEnum.getByClassName(classNameGroup.getClassName());
+        ClassTypeMappingEnum typeMappingEnum = ClassTypeMappingEnum.getByClassName(fieldTypeGroup.getClassName());
         String fieldTypeFullName = typeMappingEnum.getFullClassName();
         // 数组类型问题
-        if (CollectionUtils.isEmpty(classNameGroup.getInnerClassNameList()) && classNameGroup.getClassName().endsWith("[]")){
-            classNameGroup.setInnerClassNameList(Collections.singletonList(new ClassNameGroup(fieldTypeFullName, null)));
+        if (CollectionUtils.isEmpty(fieldTypeGroup.getInnerClassNameList()) && fieldTypeGroup.getClassName().endsWith("[]")){
+            fieldTypeGroup.setInnerClassNameList(Collections.singletonList(new ClassNameGroup(fieldTypeFullName, null)));
         }
 
         // 设置映射类型并添加的缓存提前暴露
         fieldDescStruct.setType(typeMappingEnum.getDesc());
         fieldDescStructMap.put(key, fieldDescStruct);
 
-        Function<String, String> getParamMapping = GenericMapCache::get;
-
         switch (typeMappingEnum) {
             case null_:
                 StructLog.getLogger().warn("类名为空");
                 break;
             case array:
-                List<ClassNameGroup> innerClassNameList = classNameGroup.getInnerClassNameList();
+                List<ClassNameGroup> innerClassNameList = fieldTypeGroup.getInnerClassNameList();
                 if (CollectionUtils.isNotEmpty(innerClassNameList)) {
                     ClassNameGroup nameGroup = innerClassNameList.get(0);
-                    PsiClass itemClassSearchResult = classSearcher.findFirst(getParamMapping.apply(nameGroup.getClassName()));
+                    PsiClass itemClassSearchResult = classSearcher.findFirst(nameGroup.getClassName());
                     if (Objects.nonNull(itemClassSearchResult)) {
                         fieldDescStruct.setItems(parseClass(itemClassSearchResult, nameGroup.getInnerClassNameList()));
                     } else {
@@ -181,11 +196,11 @@ public abstract class AbsParse implements Parse {
                 }
                 break;
             case object:
-                PsiClass propertyClassSearchResult = classSearcher.findFirst(getParamMapping.apply(classNameGroup.getClassName()));
+                PsiClass propertyClassSearchResult = classSearcher.findFirst(fieldTypeGroup.getClassName());
                 if (Objects.nonNull(propertyClassSearchResult)) {
-                    fieldDescStruct.setProperties(parseClass0(propertyClassSearchResult, classNameGroup.getInnerClassNameList()));
+                    fieldDescStruct.setProperties(parseClass0(propertyClassSearchResult, fieldTypeGroup.getInnerClassNameList()));
                 } else {
-                    StructLog.getLogger().warn("对象的泛型未搜索到结果：" + classNameGroup.getClassName());
+                    StructLog.getLogger().warn("对象的泛型未搜索到结果：" + fieldTypeGroup.getClassName());
                 }
                 break;
             default:
