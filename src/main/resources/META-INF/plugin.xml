@@ -5,6 +5,13 @@
     <vendor email="maple_yang_20@qq.com" url="https://github.com/yangfeng20/toStruct">maple</vendor>
 
     <change-notes><![CDATA[
+        <h2>Version 1.0.4</h2>
+        <ul>
+            <li>generics support</li>
+            <li>1.integer类型导出为int类型映射问题。</li>
+            <li>2.多层级导出，泛型类字段为实体类型+泛型导出当前字段为空properties问题。</li>
+            <li>3.array类型遗留javaType导致重复问题。</li>
+        </ul>
         <h2>Version 1.0.3</h2>
         <ul>
             <li>generics support</li>
