@@ -9,12 +9,14 @@ import com.maple.plugs.loader.BizClassLoader;
 import com.maple.plugs.log.StructLog;
 import com.maple.plugs.search.ClassSearcher;
 import com.maple.plugs.search.DefaultClassSearcher;
+import com.maple.plugs.spi.EmptyTypeParameterList;
 import com.maple.plugs.utils.ClassNameGroupConverter;
 import org.apache.commons.collections.CollectionUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 /**
  * @author yangfeng
@@ -112,63 +114,78 @@ public abstract class AbsParse implements Parse {
         PsiType fieldType = psiField.getType();
         String fieldTypeText = ClassTypeMappingEnum.baseTypeToPackageType(fieldType.getCanonicalText());
         /*
-*         字段类型组（当前为文件的真实文本【字段类型和字段类型的泛型】）
-*         public class Entity<T> {
-*
-*             private T data;
-*             private List<T> result;
-*
-*         }
-*       data字段：ClassNameGroup(className=T, innerClassNameList=null)
-*       data字段：ClassNameGroup(className=List, innerClassNameList=T)
+         *         字段类型组（当前为文件的真实文本【字段类型和字段类型的泛型】）
+         *         public class Entity<T> {
+         *
+         *             private T data;
+         *             private List<T> result;
+         *
+         *         }
+         *       data字段：ClassNameGroup(className=T, innerClassNameList=null)
+         *       data字段：ClassNameGroup(className=List, innerClassNameList=T)
          */
-        ClassNameGroup fieldTypeGroup = ClassNameGroupConverter.convert(fieldTypeText);
-        // 处理字段的类型的泛型
-        if (CollectionUtils.isEmpty(fieldTypeGroup.getInnerClassNameList()) && CollectionUtils.isNotEmpty(genericList)){
-            fieldTypeGroup.setInnerClassNameList(genericList.get(0).getInnerClassNameList());
-        }
+        ClassNameGroup fieldTypeGroupDefine = ClassNameGroupConverter.convert(fieldTypeText);
         if (CollectionUtils.isNotEmpty(genericList) && genericList.stream().map(ClassNameGroup::getClassName)
-                .anyMatch(item -> Objects.equals(item, fieldTypeGroup.getClassName()))) {
+                .anyMatch(item -> Objects.equals(item, fieldTypeGroupDefine.getClassName()))) {
             // 当前字段是泛型，同时没有指定泛型
             return fieldDescStruct;
         }
 
+        // 构建当前类的泛型定义和实际类型映射
+        HashMap<String, ClassNameGroup> genericMap = new HashMap<>(16);
+        PsiTypeParameter[] currentClassParameterList = Optional.ofNullable(currentClass.getTypeParameterList()).orElse(new EmptyTypeParameterList()).getTypeParameters();
+        for (int i = 0; i < currentClassParameterList.length; i++) {
+            String classGenericDefine = currentClassParameterList[i].getText();
+            String genericTrueClassName = genericList.get(i).getClassName();
+            // note 如果当前类的泛型定义和字段的泛型定义一致，使用真实类型替换泛型
+            if (!Objects.equals(classGenericDefine, genericTrueClassName)) {
+                StructLog.getLogger().info("当前【 " + key + " 】泛型类与真实类的映射关系: 【" + classGenericDefine + " ---> " + genericTrueClassName + " 】");
+                genericMap.put(classGenericDefine, genericList.get(i));
+            }
 
-        // 构建自身引用的泛型
-        PsiTypeParameterList currentClassParameterList = currentClass.getTypeParameterList();
-        if (Objects.nonNull(currentClassParameterList) && currentClassParameterList.getTypeParameters().length > 0) {
-            int count = 0;
-            // 当前类的参数化类型
-            for (PsiTypeParameter classParameter : currentClassParameterList.getTypeParameters()) {
-                // 当前类的泛型参数定义：例如【T】
-                String classGenericDefine = classParameter.getText();
-                // note 如果当前类的泛型定义和字段的泛型定义一致，使用真实类型替换泛型
-                if (Objects.equals(classGenericDefine, fieldTypeGroup.getClassName()) && CollectionUtils.isNotEmpty(genericList)) {
-                    fieldTypeGroup.setClassName(genericList.get(count).getClassName());
-                    break;
-                }
-                // note 如果当前类的泛型定义和字段的【类型】的泛型定义一致，使用真实类型替换泛型
-                if (CollectionUtils.isNotEmpty(fieldTypeGroup.getInnerClassNameList())){
-                    // 字段类型的泛型
-                    List<ClassNameGroup> fieldTypeGenericList = new ArrayList<>();
-                    for (ClassNameGroup fieldClassParameter : fieldTypeGroup.getInnerClassNameList()) {
-                        if (Objects.equals(classGenericDefine, fieldClassParameter.getClassName())) {
-                            ClassNameGroup fieldTypeGeneric = new ClassNameGroup(genericList.get(count).getClassName(), genericList.get(count).getInnerClassNameList());
-                            fieldTypeGenericList.add(fieldTypeGeneric);
-                        }
-                        fieldTypeGroup.setInnerClassNameList(fieldTypeGenericList);
+
+            // note 如果当前类的泛型定义和字段的【类型】的泛型定义一致，使用真实类型替换泛型
+            for (ClassNameGroup fieldClassParameter : Optional.ofNullable(fieldTypeGroupDefine.getInnerClassNameList()).orElse(Collections.emptyList())) {
+                if (Objects.equals(classGenericDefine, fieldClassParameter.getClassName())) {
+                    String fieldGenericTrueClassName = genericList.get(i).getClassName();
+                    if (!Objects.equals(classGenericDefine, fieldGenericTrueClassName)) {
+                        StructLog.getLogger().info("当前【 " + key + " 】泛型类与真实类的映射关系: 【" + classGenericDefine + " ---> " + fieldGenericTrueClassName + " 】");
+                        genericMap.put(classGenericDefine, genericList.get(i));
                     }
                 }
-                count++;
+
             }
+
         }
 
+        // 获取当前字段的真实类型组
+        // note 1.能从map中获取到的是泛型定义和字段一致 class Entity<T>{private T data;}
+        // note 2.不能从map中获取，并且通过遍历字段泛型得到字段 class Entity<T>{private List<T> data;}
+        // note 3.不能从map中获取，并且通过遍历字段泛型获取的类型为空，表示是直接写出的泛型 class Entity<T>{private List<Student> data;}
+        ClassNameGroup fieldTypeTrueNameGroup = genericMap.computeIfAbsent(fieldTypeGroupDefine.getClassName(),
+                genericKey -> {
+                    // note case 2
+                    List<ClassNameGroup> fieldGenericTrueNameGroup = Optional.ofNullable(fieldTypeGroupDefine.getInnerClassNameList())
+                            .orElse(Collections.emptyList())
+                            .stream()
+                            .map(fieldTypeGeneric -> genericMap.get(fieldTypeGeneric.getClassName()))
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toList());
+                    // note case 3
+                    if (CollectionUtils.isEmpty(fieldGenericTrueNameGroup)) {
+                        fieldGenericTrueNameGroup = fieldTypeGroupDefine.getInnerClassNameList();
+                    }
+                    return new ClassNameGroup(genericKey, fieldGenericTrueNameGroup);
+                });
+
         // 获取字段类型映射
-        ClassTypeMappingEnum typeMappingEnum = ClassTypeMappingEnum.getByClassName(fieldTypeGroup.getClassName());
+        ClassTypeMappingEnum typeMappingEnum = ClassTypeMappingEnum.getByClassName(fieldTypeTrueNameGroup.getClassName());
         String fieldTypeFullName = typeMappingEnum.getFullClassName();
+        fieldDescStruct.setJavaType(fieldTypeFullName);
+
         // 数组类型问题
-        if (CollectionUtils.isEmpty(fieldTypeGroup.getInnerClassNameList()) && fieldTypeGroup.getClassName().endsWith("[]")){
-            fieldTypeGroup.setInnerClassNameList(Collections.singletonList(new ClassNameGroup(fieldTypeFullName, null)));
+        if (CollectionUtils.isEmpty(fieldTypeTrueNameGroup.getInnerClassNameList()) && fieldTypeTrueNameGroup.getClassName().endsWith("[]")) {
+            fieldTypeTrueNameGroup.setInnerClassNameList(Collections.singletonList(new ClassNameGroup(fieldTypeFullName, null)));
         }
 
         // 设置映射类型并添加的缓存提前暴露
@@ -180,7 +197,7 @@ public abstract class AbsParse implements Parse {
                 StructLog.getLogger().warn("类名为空");
                 break;
             case array:
-                List<ClassNameGroup> innerClassNameList = fieldTypeGroup.getInnerClassNameList();
+                List<ClassNameGroup> innerClassNameList = fieldTypeTrueNameGroup.getInnerClassNameList();
                 if (CollectionUtils.isNotEmpty(innerClassNameList)) {
                     ClassNameGroup nameGroup = innerClassNameList.get(0);
                     PsiClass itemClassSearchResult = classSearcher.findFirst(nameGroup.getClassName());
@@ -196,11 +213,11 @@ public abstract class AbsParse implements Parse {
                 }
                 break;
             case object:
-                PsiClass propertyClassSearchResult = classSearcher.findFirst(fieldTypeGroup.getClassName());
+                PsiClass propertyClassSearchResult = classSearcher.findFirst(fieldTypeTrueNameGroup.getClassName());
                 if (Objects.nonNull(propertyClassSearchResult)) {
-                    fieldDescStruct.setProperties(parseClass0(propertyClassSearchResult, fieldTypeGroup.getInnerClassNameList()));
+                    fieldDescStruct.setProperties(parseClass0(propertyClassSearchResult, fieldTypeTrueNameGroup.getInnerClassNameList()));
                 } else {
-                    StructLog.getLogger().warn("对象的泛型未搜索到结果：" + fieldTypeGroup.getClassName());
+                    StructLog.getLogger().warn("对象的泛型未搜索到结果：" + fieldTypeTrueNameGroup.getClassName());
                 }
                 break;
             default:

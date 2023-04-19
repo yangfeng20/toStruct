@@ -29,6 +29,17 @@ public class StructLog {
             System.err.println(str);
         }
     }
+    public void debug(String str) {
+        if (LogLeve.DE_BUG.getCode() >= logLeve.getCode()) {
+            System.out.println(str);
+        }
+    }
+
+    public void info(String str) {
+        if (LogLeve.INFO.getCode() >= logLeve.getCode()) {
+            System.out.println(str);
+        }
+    }
 
 
     private static volatile StructLog instance = null;

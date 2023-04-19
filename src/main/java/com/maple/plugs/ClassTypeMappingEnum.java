@@ -2,6 +2,7 @@ package com.maple.plugs;
 
 import com.maple.plugs.constant.ConstantString;
 import com.maple.plugs.loader.BizClassLoader;
+import com.maple.plugs.utils.BasePackageUtil;
 import org.apache.commons.lang3.StringUtils;
 
 import java.math.BigDecimal;
@@ -117,6 +118,9 @@ public enum ClassTypeMappingEnum {
         }
 
         Class<?> clazz = BizClassLoader.loadClassByJdk(fullClassName);
+        if (Objects.isNull(clazz)){
+            clazz = BasePackageUtil.getPackageClass(fullClassName);
+        }
         // 基本类型或者集合类型
         if (clazz != null) {
             for (ClassTypeMappingEnum item : values()) {

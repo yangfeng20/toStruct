@@ -53,7 +53,7 @@ public class ToStructAction extends AnAction {
                 return;
             }
             // 解析搜索到的PsiClass
-            Parse structParse = new StructParse();
+            Parse structParse = new StructParse(true);
 
             // PSI转换为json
             List<ClassNameGroup> innerClassNameList = CursorUtil.getCursorClassGroup().getInnerClassNameList();
