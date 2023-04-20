@@ -14,4 +14,5 @@ public class ConstantString {
     public final static String ARRAY_TYPE_TAG = "[]";
     public final static String DIT = ".";
     public final static String LEFT_ANGLE_BRACKETS = "<";
+    public final static String RIGHT_ANGLE_BRACKETS = ">";
 }

@@ -1,5 +1,11 @@
 package com.maple.plugs.log;
 
+/**
+ *
+ *
+ * @author maple
+ * @date 2023/04/20
+ */
 public enum LogLeve {
         /**
          * 日志级别
@@ -12,6 +18,16 @@ public enum LogLeve {
 
         private final Integer code;
         private final String desc;
+
+    public static LogLeve getByShortCode(String logLeve){
+        for (LogLeve item : values()) {
+            if (item.desc.equalsIgnoreCase(logLeve)) {
+                return item;
+            }
+        }
+
+        return WARN;
+    }
 
 
         LogLeve(String desc, Integer code) {

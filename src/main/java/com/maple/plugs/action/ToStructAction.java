@@ -8,6 +8,8 @@ import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiClass;
 import com.maple.plugs.constant.ContextKeyConstant;
 import com.maple.plugs.entity.ClassNameGroup;
+import com.maple.plugs.log.LogLeve;
+import com.maple.plugs.log.StructLog;
 import com.maple.plugs.parse.Parse;
 import com.maple.plugs.parse.StructParse;
 import com.maple.plugs.search.ClassSearcher;
@@ -38,6 +40,8 @@ public class ToStructAction extends AnAction {
         // 2.拿到class文件的字符串，内存编译class对象，并通过classLoader加载
         // 3.拼接classes地址，直接加载类的class文件路径，加载class文件
 
+        // 根据vm参数测试日志级别
+        StructLog.getLogger(LogLeve.getByShortCode(System.getProperty("logLeve")));
 
         // 初始化线程上下文
         ThreadContext.init(e);

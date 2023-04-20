@@ -12,6 +12,7 @@ import com.maple.plugs.search.DefaultClassSearcher;
 import com.maple.plugs.spi.EmptyTypeParameterList;
 import com.maple.plugs.utils.ClassNameGroupConverter;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -89,12 +90,16 @@ public abstract class AbsParse implements Parse {
         return fieldStructMap;
     }
 
-    protected DescStruct parseField(PsiField psiField, PsiClass currentClass, List<ClassNameGroup> genericList) {
+    protected DescStruct parseField(PsiField psiField, PsiClass currentClass, List<ClassNameGroup> curTypeTrueGenericList) {
         DescStruct fieldDescStruct = new DescStruct();
+        curTypeTrueGenericList = Optional.ofNullable(curTypeTrueGenericList).orElse(Collections.emptyList());
+        String trueGenericListStr = curTypeTrueGenericList.stream().map(ClassNameGroup::getClassName)
+                .filter(StringUtils::isNotBlank)
+                .collect(Collectors.joining(",", ConstantString.LEFT_ANGLE_BRACKETS, ConstantString.RIGHT_ANGLE_BRACKETS));
 
-        // 防止自身引用自身，解决无限递归
-        String key = currentClass.getQualifiedName() + ConstantString.DIT + psiField.getName();
-        DescStruct descStruct = fieldDescStructMap.get(key);
+        // note 如果【类名路径<真实泛型>.字段】路径存在，则认为当前类以及被解析 同时防止自身引用自身，解决无限递归
+        String fieldTypePath = currentClass.getQualifiedName() + trueGenericListStr + ConstantString.DIT + psiField.getName();
+        DescStruct descStruct = fieldDescStructMap.get(fieldTypePath);
         if (descStruct != null) {
             return descStruct.clone();
         }
@@ -122,41 +127,24 @@ public abstract class AbsParse implements Parse {
          *
          *         }
          *       data字段：ClassNameGroup(className=T, innerClassNameList=null)
-         *       data字段：ClassNameGroup(className=List, innerClassNameList=T)
+         *       result字段：ClassNameGroup(className=List, innerClassNameList=T)
          */
         ClassNameGroup fieldTypeGroupDefine = ClassNameGroupConverter.convert(fieldTypeText);
-        if (CollectionUtils.isNotEmpty(genericList) && genericList.stream().map(ClassNameGroup::getClassName)
-                .anyMatch(item -> Objects.equals(item, fieldTypeGroupDefine.getClassName()))) {
+
+        // 获取当前类型泛型定义数组
+        PsiTypeParameter[] currentClassParameterList = Optional.ofNullable(currentClass.getTypeParameterList()).orElse(new EmptyTypeParameterList()).getTypeParameters();
+
+        // 如果当前字段类型和泛型定义一致，且和泛型的真实类型一致，表示当前Class没有指定泛型【也就是是在泛型定义类中直接toStruct操作，具体的泛型未知】
+        if (CollectionUtils.isNotEmpty(curTypeTrueGenericList) && curTypeTrueGenericList.stream().map(ClassNameGroup::getClassName)
+                .anyMatch(trueGeneric -> Objects.equals(trueGeneric, fieldTypeGroupDefine.getClassName()))
+                && Arrays.stream(currentClassParameterList).map(PsiTypeParameter::getText)
+                .anyMatch(genericDefine -> Objects.equals(genericDefine, fieldTypeGroupDefine.getClassName()))) {
             // 当前字段是泛型，同时没有指定泛型
             return fieldDescStruct;
         }
 
         // 构建当前类的泛型定义和实际类型映射
-        HashMap<String, ClassNameGroup> genericMap = new HashMap<>(16);
-        PsiTypeParameter[] currentClassParameterList = Optional.ofNullable(currentClass.getTypeParameterList()).orElse(new EmptyTypeParameterList()).getTypeParameters();
-        for (int i = 0; i < currentClassParameterList.length; i++) {
-            String classGenericDefine = currentClassParameterList[i].getText();
-            String genericTrueClassName = genericList.get(i).getClassName();
-            // note 如果当前类的泛型定义和字段的泛型定义一致，使用真实类型替换泛型
-            if (!Objects.equals(classGenericDefine, genericTrueClassName)) {
-                StructLog.getLogger().info("当前【 " + key + " 】泛型类与真实类的映射关系: 【" + classGenericDefine + " ---> " + genericTrueClassName + " 】");
-                genericMap.put(classGenericDefine, genericList.get(i));
-            }
-
-
-            // note 如果当前类的泛型定义和字段的【类型】的泛型定义一致，使用真实类型替换泛型
-            for (ClassNameGroup fieldClassParameter : Optional.ofNullable(fieldTypeGroupDefine.getInnerClassNameList()).orElse(Collections.emptyList())) {
-                if (Objects.equals(classGenericDefine, fieldClassParameter.getClassName())) {
-                    String fieldGenericTrueClassName = genericList.get(i).getClassName();
-                    if (!Objects.equals(classGenericDefine, fieldGenericTrueClassName)) {
-                        StructLog.getLogger().info("当前【 " + key + " 】泛型类与真实类的映射关系: 【" + classGenericDefine + " ---> " + fieldGenericTrueClassName + " 】");
-                        genericMap.put(classGenericDefine, genericList.get(i));
-                    }
-                }
-
-            }
-
-        }
+        Map<String, ClassNameGroup> genericMap = buildGenericMapper(curTypeTrueGenericList, currentClassParameterList, fieldTypePath, fieldTypeGroupDefine);
 
         // 获取当前字段的真实类型组
         // note 1.能从map中获取到的是泛型定义和字段一致 class Entity<T>{private T data;}
@@ -190,7 +178,7 @@ public abstract class AbsParse implements Parse {
 
         // 设置映射类型并添加的缓存提前暴露
         fieldDescStruct.setType(typeMappingEnum.getDesc());
-        fieldDescStructMap.put(key, fieldDescStruct);
+        fieldDescStructMap.put(fieldTypePath, fieldDescStruct);
 
         switch (typeMappingEnum) {
             case null_:
@@ -226,6 +214,46 @@ public abstract class AbsParse implements Parse {
         }
 
         return fieldDescStruct;
+    }
+
+    /**
+     * 构建泛型和真实类型的映射
+     *
+     * @param curTypeTrueGenericList    当前类型真正通用列表
+     * @param fieldTypePath             字段类型道路
+     * @param fieldTypeGroupDefine      当前字段类型组定义
+     * @param currentClassParameterList 当前类参数类型列表
+     * @return {@link Map}<{@link String}, {@link ClassNameGroup}>
+     */
+    @NotNull
+    private Map<String, ClassNameGroup> buildGenericMapper(List<ClassNameGroup> curTypeTrueGenericList, PsiTypeParameter[] currentClassParameterList, String fieldTypePath, ClassNameGroup fieldTypeGroupDefine) {
+        if (CollectionUtils.isEmpty(curTypeTrueGenericList) || Objects.isNull(currentClassParameterList) || currentClassParameterList.length <= 0) {
+            return new HashMap<>();
+        }
+        HashMap<String, ClassNameGroup> genericMap = new HashMap<>(16);
+        for (int i = 0; i < currentClassParameterList.length; i++) {
+            String classGenericDefine = currentClassParameterList[i].getText();
+            String genericTrueClassName = curTypeTrueGenericList.get(i).getClassName();
+            // note 如果当前类的泛型定义和字段的泛型定义一致，使用真实类型替换泛型
+            if (!Objects.equals(classGenericDefine, genericTrueClassName)) {
+                StructLog.getLogger().info("当前【 " + fieldTypePath + " 】泛型类与真实类的映射关系: 【" + classGenericDefine + " ---> " + genericTrueClassName + " 】");
+                genericMap.put(classGenericDefine, curTypeTrueGenericList.get(i));
+            }
+
+
+            // note 如果当前类的泛型定义和字段的【类型】的泛型定义一致，使用真实类型替换泛型
+            for (ClassNameGroup fieldClassParameter : Optional.ofNullable(fieldTypeGroupDefine.getInnerClassNameList()).orElse(Collections.emptyList())) {
+                if (Objects.equals(classGenericDefine, fieldClassParameter.getClassName())) {
+                    String fieldGenericTrueClassName = curTypeTrueGenericList.get(i).getClassName();
+                    if (!Objects.equals(classGenericDefine, fieldGenericTrueClassName)) {
+                        StructLog.getLogger().info("当前【 " + fieldTypePath + " 】泛型类与真实类的映射关系: 【" + classGenericDefine + " ---> " + fieldGenericTrueClassName + " 】");
+                        genericMap.put(classGenericDefine, curTypeTrueGenericList.get(i));
+                    }
+                }
+
+            }
+        }
+        return genericMap;
     }
 
 
